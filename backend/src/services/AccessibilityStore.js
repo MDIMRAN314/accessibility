@@ -135,7 +135,9 @@ class AccessibilityStore {
 
   static async findReportByRequestId(requestId) {
     if (isMongoReady()) {
-      return toPlain(await AccessibilityReport.findOne({ requestId }));
+      return toPlain(
+        await AccessibilityReport.findOne({ requestId }).sort({ createdAt: -1 }),
+      );
     }
 
     const report = Array.from(memory.reports.values()).find(

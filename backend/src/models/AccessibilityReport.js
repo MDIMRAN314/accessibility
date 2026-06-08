@@ -115,28 +115,7 @@ const AccessibilityReportSchema = new mongoose.Schema({
   scoreBreakdown: mongoose.Schema.Types.Mixed,
   scoreHistory: [mongoose.Schema.Types.Mixed],
   issues: [IssueSchema],
-  principles: [
-    {
-      name: String,
-      status: String,
-      guidelines: [
-        {
-          name: String,
-          status: String,
-          criteria: [
-            {
-              id: String,
-              name: String,
-              level: String,
-              status: String,
-              type: String,
-              issues: [{ type: mongoose.Schema.Types.ObjectId, ref: "Issue" }],
-            },
-          ],
-        },
-      ],
-    },
-  ],
+  principles: [mongoose.Schema.Types.Mixed],
   createdAt: {
     type: Date,
     default: Date.now,

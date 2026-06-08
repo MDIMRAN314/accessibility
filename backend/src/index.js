@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 
 // Import routes
@@ -33,8 +32,11 @@ app.use(
     },
   }),
 );
-app.use(bodyParser.json({ limit: "50mb" }));
-app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+
+const requestBodyLimit = process.env.REQUEST_BODY_LIMIT || "10mb";
+
+app.use(express.json({ limit: requestBodyLimit }));
+app.use(express.urlencoded({ limit: requestBodyLimit, extended: true }));
 
 // Routes
 app.use("/api/requests", requestRoutes);
