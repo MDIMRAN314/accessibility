@@ -89,25 +89,19 @@ class ScoreCalculator {
       (issue) => issue.type !== "Best Practices",
     );
 
-    if (relevant.some((issue) => ["Fail", "Error"].includes(issue.status))) {
+    if (relevant.some((issue) => issue.status === "Fail")) {
       return "Fail";
     }
 
     if (
-      relevant.some((issue) =>
-        ["Warning", "Manual Review"].includes(issue.status),
-      )
-    ) {
-      return "Manual Review";
-    }
-
-    if (
       relevant.length > 0 &&
-      relevant.every((issue) =>
-        ["Pass", "Approved Exception", "Not an issue"].includes(issue.status),
-      )
+      relevant.every((issue) => issue.status === "Pass")
     ) {
       return "Pass";
+    }
+
+    if (relevant.length > 0) {
+      return "Manual Review";
     }
 
     return "NA";

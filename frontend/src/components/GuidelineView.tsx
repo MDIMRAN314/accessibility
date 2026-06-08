@@ -376,8 +376,8 @@ function IssueRow({
   onStatusChange,
   onToggle,
 }: IssueRowProps): JSX.Element {
-  const allowedStatuses = getAllowedStatuses(issue.status);
-  const editable = isStatusEditable(issue.status);
+  const allowedStatuses = getAllowedStatuses(issue.status, "issue");
+  const editable = isStatusEditable(issue.status, "issue");
 
   return (
     <div className={styles.issueBlock}>
@@ -472,8 +472,8 @@ function ElementInlineRow({
 }: ElementInlineRowProps): JSX.Element {
   const elementKey = getElementKey(element);
   const status = element.status ?? "Manual Review";
-  const allowedStatuses = getAllowedStatuses(status);
-  const editable = isStatusEditable(status);
+  const allowedStatuses = getAllowedStatuses(status, "element");
+  const editable = isStatusEditable(status, "element");
 
   return (
     <div className={styles.elementInlineRow}>

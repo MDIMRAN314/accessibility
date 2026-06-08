@@ -301,6 +301,10 @@ class AccessibilityStore {
       return issue.status;
     }
 
+    if (statuses.every((status) => status === "NA")) {
+      return "NA";
+    }
+
     if (statuses.some((status) => ["Fail", "Error"].includes(status))) {
       return "Fail";
     }
@@ -313,7 +317,9 @@ class AccessibilityStore {
 
     if (
       statuses.every((status) =>
-        ["Approved Exception", "Not an issue", "Pass"].includes(status),
+        ["Pass", "Approved Exception", "Not an issue", "Best Practice"].includes(
+          status,
+        ),
       )
     ) {
       return "Pass";

@@ -62,8 +62,8 @@ function ElementView({
         ) : (
           elementGroups.map((group) => {
             const status = group.element.status ?? "Manual Review";
-            const allowedStatuses = getAllowedStatuses(status);
-            const editable = isStatusEditable(status);
+            const allowedStatuses = getAllowedStatuses(status, "element");
+            const editable = isStatusEditable(status, "element");
 
             return (
               <div className={styles.elementGroup} key={group.elementKey}>
@@ -123,8 +123,11 @@ function ElementView({
                 {expanded[group.elementKey] ? (
                   <div className={styles.elementIssues}>
                     {group.issues.map((issue) => {
-                      const issueAllowedStatuses = getAllowedStatuses(issue.status);
-                      const issueEditable = isStatusEditable(issue.status);
+                      const issueAllowedStatuses = getAllowedStatuses(
+                        issue.status,
+                        "issue",
+                      );
+                      const issueEditable = isStatusEditable(issue.status, "issue");
 
                       return (
                         <div className={styles.issueRow} key={`${group.elementKey}-${issue.issueId}`}>

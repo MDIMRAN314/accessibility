@@ -23,6 +23,7 @@ const issueStatuses = new Set<ReportStatus>([
 
 const statusOrder: ReportStatus[] = [
   "Fail",
+  "Error",
   "Warning",
   "Manual Review",
   "Approved Exception",
@@ -31,6 +32,8 @@ const statusOrder: ReportStatus[] = [
   "Pass",
   "NA",
 ];
+
+type StatusTarget = "issue" | "element" | "aggregate";
 
 export const isReportableIssue = (issue: AccessibilityIssue): boolean =>
   issue.type === "Best Practices" || issueStatuses.has(issue.status);
@@ -164,26 +167,43 @@ export const deriveAggregateStatus = (
   issues: AccessibilityIssue[],
   fallback: ReportStatus = "NA",
 ): ReportStatus => {
-  if (issues.length === 0) {
+  const statuses = getAggregateStatuses(issues);
+
+  if (statuses.length === 0) {
     return fallback;
   }
 
-  if (issues.some((issue) => issue.status === "Fail" || issue.status === "Error")) {
+  if (statuses.every((status) => status === "NA")) {
+    return "NA";
+  }
+
+  if (statuses.some((status) => status === "Fail" || status === "Error")) {
     return "Fail";
   }
 
-  if (issues.some((issue) => issue.status === "Warning" || issue.status === "Manual Review")) {
+  if (statuses.some((status) => status === "Warning" || status === "Manual Review")) {
     return "Warning";
   }
 
-  if (issues.every((issue) => issue.status === "Approved Exception" || issue.status === "Not an issue")) {
+  if (
+    statuses.every((status) =>
+      ["Pass", "Approved Exception", "Not an issue", "Best Practice"].includes(status),
+    )
+  ) {
     return "Pass";
   }
 
-  return statusOrder.find((status) => issues.some((issue) => issue.status === status)) ?? "Pass";
+  return statusOrder.find((status) => statuses.includes(status)) ?? "Warning";
 };
 
-export const getAllowedStatuses = (status: ReportStatus): ReportStatus[] => {
+export const getAllowedStatuses = (
+  status: ReportStatus,
+  target: StatusTarget = "issue",
+): ReportStatus[] => {
+  if (target === "aggregate") {
+    return [status];
+  }
+
   if (["Pass", "Fail", "Warning", "NA", "Best Practice"].includes(status)) {
     return [status];
   }
@@ -207,8 +227,18 @@ export const getAllowedStatuses = (status: ReportStatus): ReportStatus[] => {
   return [status];
 };
 
-export const isStatusEditable = (status: ReportStatus): boolean =>
-  getAllowedStatuses(status).length > 1;
+export const isStatusEditable = (
+  status: ReportStatus,
+  target: StatusTarget = "issue",
+): boolean => getAllowedStatuses(status, target).length > 1;
+
+const getAggregateStatuses = (issues: AccessibilityIssue[]): ReportStatus[] =>
+  issues.flatMap((issue) => [
+    issue.status,
+    ...issue.elements
+      .map((element) => element.status)
+      .filter((status): status is ReportStatus => Boolean(status)),
+  ]);
 
 export const getRequestName = (report: AccessibilityReport): string => {
   if (report.requestName?.trim()) {

@@ -151,29 +151,59 @@ class ReportController {
               };
             }),
         }));
+      principle.status = ReportController.deriveStatus(
+        principle.guidelines.flatMap((guideline) =>
+          guideline.criteria.flatMap((criterion) => criterion.issues || []),
+        ),
+      );
     });
 
     return principles;
   }
 
   static deriveStatus(issues) {
-    if (issues.length === 0) {
+    const statuses = ReportController.getAggregateStatuses(issues);
+
+    if (statuses.length === 0) {
       return "NA";
     }
 
-    if (issues.some((issue) => ["Fail", "Error"].includes(issue.status))) {
+    if (statuses.every((status) => status === "NA")) {
+      return "NA";
+    }
+
+    if (statuses.some((status) => ["Fail", "Error"].includes(status))) {
       return "Fail";
     }
 
     if (
-      issues.some((issue) =>
-        ["Warning", "Manual Review"].includes(issue.status),
+      statuses.some((status) =>
+        ["Warning", "Manual Review"].includes(status),
       )
     ) {
       return "Warning";
     }
 
-    return "Pass";
+    if (
+      statuses.every((status) =>
+        ["Pass", "Approved Exception", "Not an issue", "Best Practice"].includes(
+          status,
+        ),
+      )
+    ) {
+      return "Pass";
+    }
+
+    return "Warning";
+  }
+
+  static getAggregateStatuses(issues) {
+    return issues.flatMap((issue) => [
+      issue.status,
+      ...(issue.elements || [])
+        .map((element) => element.status)
+        .filter(Boolean),
+    ]);
   }
 
   static isReportable(issue, type) {
