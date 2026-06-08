@@ -33,7 +33,7 @@ app.use(
   }),
 );
 
-const requestBodyLimit = process.env.REQUEST_BODY_LIMIT || "10mb";
+const requestBodyLimit = process.env.REQUEST_BODY_LIMIT || "50mb";
 
 app.use(express.json({ limit: requestBodyLimit }));
 app.use(express.urlencoded({ limit: requestBodyLimit, extended: true }));
