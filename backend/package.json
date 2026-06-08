@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "build": "echo \"No backend build step required\"",
-    "install:chrome": "npx puppeteer browsers install chrome",
+    "install:chrome": "node node_modules/puppeteer/install.js",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest"
