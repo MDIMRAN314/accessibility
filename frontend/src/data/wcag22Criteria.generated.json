@@ -1,0 +1,1233 @@
+﻿[
+    {
+        "id":  "1.1.1",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.1",
+        "guidelineName":  "Text Alternatives",
+        "name":  "Non-text Content",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe, WAVE, Lighthouse) to detect missing alt attributes. Manual review to verify alt text meaningfully describes content. Screen reader (NVDA/VoiceOver) to confirm how images are announced.",
+        "automationJustification":  "Covered by Axe: Detects missing/empty alt attributes (image-alt, area-alt, input-image-alt, role-img-alt).\nManual needed: Verify alt text is contextually meaningful; judge decorative vs. informative images; review complex images (charts, infographics).",
+        "axeRuleIds":  [
+                           "image-alt",
+                           "area-alt",
+                           "input-image-alt",
+                           "object-alt",
+                           "role-img-alt"
+                       ]
+    },
+    {
+        "id":  "1.2.1",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Audio-only and Video-only (Prerecorded)",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual check to confirm a text transcript exists for audio-only content. Manual check to confirm audio description or transcript exists for silent video. Screen reader to verify transcript is accessible.",
+        "automationJustification":  "Not automatable.\nManual needed: Confirm transcript exists and accurately describes audio/video content; screen reader verification of transcript accessibility.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.2",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Captions (Prerecorded)",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual or automated scan to detect presence of captions on video. Human review to verify captions are accurate, synchronized, and identify speaker and sound effects. Tools: WAVE, media player inspection.",
+        "automationJustification":  "Covered by Axe: Detects presence of captions track (video-caption).\nManual needed: Verify caption accuracy, synchronisation, speaker identification, and sound effect descriptions.",
+        "axeRuleIds":  [
+                           "video-caption"
+                       ]
+    },
+    {
+        "id":  "1.2.3",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Audio Description or Media Alternative (Prerecorded)",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm synchronized audio description or full text alternative is provided for prerecorded video. Screen reader to verify text alternative is reachable.",
+        "automationJustification":  "Not automatable.\nManual needed: Confirm audio description or full text alternative is provided and accurately reflects visual content.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.4",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Captions (Live)",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual observation of live stream to confirm real-time captions are present and adequately synchronized. Human quality review for accuracy.",
+        "automationJustification":  "Not automatable.\nManual needed: Real-time observation of live stream to verify captions are present, synchronised, and accurate during broadcast.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.5",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Audio Description (Prerecorded)",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm audio descriptions are present, synchronized, and accurately describe all visual information not conveyed through audio alone.",
+        "automationJustification":  "Not automatable.\nManual needed: Human review of video to confirm all visual information is covered by audio description.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.6",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Sign Language (Prerecorded)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm a sign language interpretation is provided for all prerecorded audio content. Visual inspection of the sign language video track.",
+        "automationJustification":  "Not automatable.\nManual needed: Subject-matter expert review to confirm sign language track exists and interpretation quality is adequate.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.7",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Extended Audio Description (Prerecorded)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm video is paused where necessary to provide sufficient audio description of visual events that cannot fit in natural pauses.",
+        "automationJustification":  "Not automatable.\nManual needed: Human assessment of video pacing to determine if extended audio descriptions are required and adequate.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.8",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Media Alternative (Prerecorded)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm a full text alternative (including all dialogue, sound effects, and visual descriptions) is provided for all prerecorded synchronized media.",
+        "automationJustification":  "Not automatable.\nManual needed: Human comparison of media and its text alternative for completeness and accuracy.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.2.9",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.2",
+        "guidelineName":  "Time-based Media",
+        "name":  "Audio-only (Live)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual observation to confirm a real-time text alternative (e.g., live captions or transcript) is provided for live audio-only content.",
+        "automationJustification":  "Not automatable.\nManual needed: Real-time monitoring of live audio stream to confirm text alternative is present and accurate.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.3.1",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.3",
+        "guidelineName":  "Adaptable",
+        "name":  "Info and Relationships",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) for missing semantic markup (headings, lists, tables, landmarks). Manual inspection of DOM structure. Screen reader verification that structure is correctly conveyed. Keyboard navigation to confirm logical structure.",
+        "automationJustification":  "Covered by Axe: Detects missing table headers, incorrect list markup, missing landmark roles (aria-required-children, list, listitem, th-has-data-cells).\nManual needed: Screen reader walkthrough to confirm programmatic structure matches visual presentation; verify complex table relationships.",
+        "axeRuleIds":  [
+                           "aria-hidden-body",
+                           "aria-required-children",
+                           "aria-required-parent",
+                           "definition-list",
+                           "dlitem",
+                           "list",
+                           "listitem",
+                           "td-headers-attr",
+                           "th-has-data-cells"
+                       ]
+    },
+    {
+        "id":  "1.3.2",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.3",
+        "guidelineName":  "Adaptable",
+        "name":  "Meaningful Sequence",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "The order of content must be manually tested to ensure it\u0027s logical and follows the visual flow, especially when CSS is used for positioning .",
+        "automationJustification":  "Not fully automatable. Axe can extract DOM order.\nManual needed: Screen reader testing to confirm reading sequence is logical and matches visual/content intent.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.3.3",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.3",
+        "guidelineName":  "Adaptable",
+        "name":  "Sensory Characteristics",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review of all instructions and UI labels to confirm they do not rely solely on shape, color, size, location, or sound (e.g., \u0027click the round button\u0027 or \u0027see the red error\u0027).",
+        "automationJustification":  "Not automatable.\nManual needed: Content review to confirm instructions do not rely solely on shape, colour, size, or spatial location.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.3.4",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.3",
+        "guidelineName":  "Adaptable",
+        "name":  "Orientation",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual test by locking device orientation (portrait/landscape) and verifying content is not restricted. Emulator testing across both orientations. DevTools mobile emulation.",
+        "automationJustification":  "Partially covered: Some tools flag CSS orientation lock.\nManual needed: Device/emulator testing in both orientations to confirm all content and functionality remains accessible.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.3.5",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.3",
+        "guidelineName":  "Adaptable",
+        "name":  "Identify Input Purpose",
+        "level":  "AA",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated scan (Axe) for missing or incorrect autocomplete attributes on form inputs. Manual inspection of HTML source to confirm autocomplete values match input purpose.",
+        "automationJustification":  "Covered by Axe: Detects invalid autocomplete attribute values (autocomplete-valid).\nManual needed: Code inspection to confirm autocomplete values are semantically correct for each personal data field type.",
+        "axeRuleIds":  [
+                           "autocomplete-valid"
+                       ]
+    },
+    {
+        "id":  "1.3.6",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.3",
+        "guidelineName":  "Adaptable",
+        "name":  "Identify Purpose",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual inspection of icons, regions, and UI components to verify programmatic purpose is communicated via roles, properties, or other semantic mechanisms beyond visual appearance alone.",
+        "automationJustification":  "Not automatable.\nManual needed: Accessibility tree inspection (browser DevTools/AXE panel) to confirm purpose of UI components and icons is programmatically exposed.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.1",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Use of Color",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual review of all UI states (links, errors, charts, form validation) to verify color is not the only means of conveying information. Grayscale rendering test. Screen reader check to confirm status is also conveyed via text or icons.",
+        "automationJustification":  "Partially covered by Axe: Flags links distinguished by colour only (link-in-text-block).\nManual needed: Visual inspection across all UI states (error, focus, hover, selected) to identify all instances of colour-only differentiation.",
+        "axeRuleIds":  [
+                           "link-in-text-block",
+                           "avoid-inline-spacing"
+                       ]
+    },
+    {
+        "id":  "1.4.2",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Audio Control",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual test: trigger any auto-playing audio and verify a mechanism exists to pause, stop, or control volume independently of system volume. Keyboard test to reach and operate the control.",
+        "automationJustification":  "Partially covered by Axe: Detects auto-playing audio elements (no-autoplay-audio).\nManual needed: Trigger auto-play, locate volume/pause controls, and verify they are keyboard accessible and functional.",
+        "axeRuleIds":  [
+                           "no-autoplay-audio"
+                       ]
+    },
+    {
+        "id":  "1.4.3",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Contrast (Minimum)",
+        "level":  "AA",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated colour contrast scan (Axe, WAVE, Lighthouse, Colour Contrast Analyser). Manual spot-check of text overlaid on images, gradients, or complex backgrounds. Check all UI states (hover, focus, disabled).",
+        "automationJustification":  "Covered by Axe: Measures contrast ratios for text on solid backgrounds (color-contrast).\nManual needed: Colour picker + contrast calculator for text on images, gradients, or overlapping elements.",
+        "axeRuleIds":  [
+                           "color-contrast"
+                       ]
+    },
+    {
+        "id":  "1.4.4",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Resize Text",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual test: zoom browser text to 200% (Ctrl/Cmd +) and verify no content is lost, truncated, or overlapping. Test in all major browsers. Check that text resizes without requiring horizontal scrolling.",
+        "automationJustification":  "Partially covered by Axe: Detects viewport meta tag blocking zoom (meta-viewport).\nManual needed: Browser zoom to 200% with visual inspection across all key pages and interactive components.",
+        "axeRuleIds":  [
+                           "meta-viewport"
+                       ]
+    },
+    {
+        "id":  "1.4.5",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Images of Text",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual visual inspection and DOM review to identify text rendered as images where live text could be used instead. Exclude logos and essential brand imagery.",
+        "automationJustification":  "Not reliably automatable.\nManual needed: Visual review of all images to identify text rendered as image; verify real text alternatives are used where possible.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.6",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Contrast (Enhanced)",
+        "level":  "AAA",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated colour contrast scan targeting 7:1 ratio for normal text and 4.5:1 for large text. Manual verification for complex backgrounds.",
+        "automationJustification":  "Covered by Axe: Enhanced contrast check with stricter thresholds (color-contrast-enhanced).\nManual needed: Manual measurement for text on images, gradients, or complex backgrounds.",
+        "axeRuleIds":  [
+                           "color-contrast-enhanced"
+                       ]
+    },
+    {
+        "id":  "1.4.7",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Low or No Background Audio",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual audio playback test to verify background sounds in speech audio are either absent, at least 20dB lower than foreground speech, or can be turned off. Audio analysis tools can assist.",
+        "automationJustification":  "Not automatable.\nManual needed: Specialist audio analysis tools; human assessment of foreground speech versus background audio levels.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.8",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Visual Presentation",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review of text presentation options: foreground/background colour selection, line width ≤80 characters, text not fully justified, line spacing ≥1.5, and ability to resize text without assistive technology.",
+        "automationJustification":  "Not automatable.\nManual needed: Manual check of all five presentation requirements (foreground/background colour selection, width ≤80 chars, line spacing ≥1.5, text resize) across all text blocks.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.9",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Images of Text (No Exception)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual inspection to confirm text is never rendered as an image except where essential (e.g., logotype). DOM and CSS inspection to identify CSS background images containing text.",
+        "automationJustification":  "Not automatable.\nManual needed: Thorough visual review including CSS backgrounds to confirm no text is rendered as image except where essential.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.10",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Reflow",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: set browser to 320px viewport width (or zoom to 400%) and verify content reflows without horizontal scrolling and no content is lost. Test on mobile device. DevTools responsive mode.",
+        "automationJustification":  "Not automatable.\nManual needed: Browser viewport resize / DevTools responsive mode with visual inspection of every key page for content loss or horizontal scrolling at 320px.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.11",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Non-text Contrast",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) for UI component contrast. Manual colour contrast measurement of form borders, icons, focus indicators, and chart data points against adjacent colours using Colour Contrast Analyser.",
+        "automationJustification":  "Partially covered: Some tools flag obvious non-text contrast failures.\nManual needed: Contrast measurement tool (e.g. Colour Contrast Analyser) for icons, form boundaries, and UI component states against adjacent colours.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "1.4.12",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Text Spacing",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated bookmarklet or browser extension (e.g., Text Spacing Bookmarklet) to apply increased line height, letter spacing, word spacing, and paragraph spacing. Manual visual inspection for text cut-off, overlap, or hidden content.",
+        "automationJustification":  "Partially covered by Axe: Detects inline spacing styles that could block override (avoid-inline-spacing).\nManual needed: Apply text spacing bookmarklet (TPGI) and visually confirm no content is clipped or lost.",
+        "axeRuleIds":  [
+                           "avoid-inline-spacing"
+                       ]
+    },
+    {
+        "id":  "1.4.13",
+        "principle":  "Perceivable",
+        "guidelineId":  "1.4",
+        "guidelineName":  "Distinguishable",
+        "name":  "Content on Hover or Focus",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual keyboard test: tab to trigger tooltips or hover content and verify content is persistent, dismissible without moving focus, and hoverable. Mouse test for pointer hover behaviour. Screen reader to check announcement.",
+        "automationJustification":  "Not automatable.\nManual needed: Mouse and keyboard interaction to trigger hover/focus content; verify it is persistent, dismissible (Esc), and hoverable without disappearing.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.1.1",
+        "principle":  "Operable",
+        "guidelineId":  "2.1",
+        "guidelineName":  "Keyboard Accessible",
+        "name":  "Keyboard",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Keyboard-only test: navigate entire interface using Tab, Shift+Tab, Enter, Space, and arrow keys. Verify all functionality is operable without a mouse. Test all interactive components including menus, modals, carousels, and forms.",
+        "automationJustification":  "Partially covered by Axe: Detects focusability issues (frame-focusable-content, scrollable-region-focusable, server-side-image-map).\nManual needed: Full keyboard navigation walkthrough by a tester to confirm all functionality is reachable and operable without a mouse.",
+        "axeRuleIds":  [
+                           "frame-focusable-content",
+                           "scrollable-region-focusable",
+                           "server-side-image-map"
+                       ]
+    },
+    {
+        "id":  "2.1.2",
+        "principle":  "Operable",
+        "guidelineId":  "2.1",
+        "guidelineName":  "Keyboard Accessible",
+        "name":  "No Keyboard Trap",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard-only test: tab into each interactive component (date pickers, embedded media, maps) and attempt to navigate out using Tab or Escape. Verify no component traps keyboard focus without an escape mechanism.",
+        "automationJustification":  "Not automatable.\nManual needed: Keyboard tester navigates into each interactive component and attempts to exit using Tab/Shift+Tab/Esc to detect traps.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.1.3",
+        "principle":  "Operable",
+        "guidelineId":  "2.1",
+        "guidelineName":  "Keyboard Accessible",
+        "name":  "Keyboard (No Exception)",
+        "level":  "AAA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Extended keyboard-only test covering all functionality including path-dependent interactions. Verify no exceptions exist for any keyboard limitation.",
+        "automationJustification":  "Partially covered by Axe: scrollable-region-focusable.\nManual needed: Exhaustive keyboard testing of all functionality; stricter than 2.1.1, confirming every feature has a keyboard path.",
+        "axeRuleIds":  [
+                           "scrollable-region-focusable"
+                       ]
+    },
+    {
+        "id":  "2.1.4",
+        "principle":  "Operable",
+        "guidelineId":  "2.1",
+        "guidelineName":  "Keyboard Accessible",
+        "name":  "Character Key Shortcuts",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review of all implemented single-character keyboard shortcuts. Verify that shortcuts can be turned off, remapped, or are only active when a component has focus.",
+        "automationJustification":  "Not automatable.\nManual needed: Identify all custom keyboard shortcuts; verify each can be turned off, remapped, or is only active when the component has focus.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.2.1",
+        "principle":  "Operable",
+        "guidelineId":  "2.2",
+        "guidelineName":  "Enough Time",
+        "name":  "Timing Adjustable",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual test: identify all timed interactions (session timeouts, auto-advancing content). Verify a mechanism to turn off, adjust, or extend the time limit exists and is operable by keyboard.",
+        "automationJustification":  "Partially covered by Axe: Detects auto-refresh meta tags (meta-refresh).\nManual needed: Trigger session timeouts and time limits; verify user is offered options to turn off, adjust, or extend.",
+        "axeRuleIds":  [
+                           "meta-refresh"
+                       ]
+    },
+    {
+        "id":  "2.2.2",
+        "principle":  "Operable",
+        "guidelineId":  "2.2",
+        "guidelineName":  "Enough Time",
+        "name":  "Pause, Stop, Hide",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual test: identify all moving, blinking, scrolling, or auto-updating content. Verify a keyboard-accessible mechanism to pause, stop, or hide is available. Screen reader to confirm auto-updates are announced correctly.",
+        "automationJustification":  "Partially covered by Axe: Detects blink and marquee elements.\nManual needed: Interact with all animated content; confirm pause/stop/hide controls are present, keyboard accessible, and functional.",
+        "axeRuleIds":  [
+                           "blink",
+                           "marquee"
+                       ]
+    },
+    {
+        "id":  "2.2.3",
+        "principle":  "Operable",
+        "guidelineId":  "2.2",
+        "guidelineName":  "Enough Time",
+        "name":  "No Timing",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review of all application features to confirm no time limits are required except for real-time exceptions. Document any timing exceptions found.",
+        "automationJustification":  "Not automatable.\nManual needed: Review all timed features with business stakeholders to confirm timing is not essential to the activity.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.2.4",
+        "principle":  "Operable",
+        "guidelineId":  "2.2",
+        "guidelineName":  "Enough Time",
+        "name":  "Interruptions",
+        "level":  "AAA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual test: identify all interruptions (popups, alerts, notifications). Verify they can be postponed or suppressed by the user, except in emergencies.",
+        "automationJustification":  "Partially covered by Axe: meta-refresh-no-exceptions.\nManual needed: Trigger all interruption types and verify each can be postponed or suppressed by the user.",
+        "axeRuleIds":  [
+                           "meta-refresh-no-exceptions"
+                       ]
+    },
+    {
+        "id":  "2.2.5",
+        "principle":  "Operable",
+        "guidelineId":  "2.2",
+        "guidelineName":  "Enough Time",
+        "name":  "Re-authenticating",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: allow session to expire during a form or task. Verify data is preserved and the user can re-authenticate and continue without loss of data.",
+        "automationJustification":  "Not automatable.\nManual needed: Simulate session expiry; complete re-authentication and verify all previously entered data and progress is preserved.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.2.6",
+        "principle":  "Operable",
+        "guidelineId":  "2.2",
+        "guidelineName":  "Enough Time",
+        "name":  "Timeouts",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm users are warned of data loss due to inactivity before a timeout occurs. Verify the warning is accessible and dismissible.",
+        "automationJustification":  "Not automatable.\nManual needed: Identify all inactivity timeout warnings; verify they are accessible and presented with sufficient advance notice.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.3.1",
+        "principle":  "Operable",
+        "guidelineId":  "2.3",
+        "guidelineName":  "Seizures and Physical Reactions",
+        "name":  "Three Flashes or Below Threshold",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Automated analysis using Photosensitive Epilepsy Analysis Tool (PEAT) for video content. Manual review of animated content for flash frequency. Verify no content flashes more than three times per second.",
+        "automationJustification":  "Not fully automatable. PEAT tool can analyse video frame rates.\nManual needed: Run PEAT on all video content; manually assess CSS/JS animations for flash frequency and area thresholds.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.3.2",
+        "principle":  "Operable",
+        "guidelineId":  "2.3",
+        "guidelineName":  "Seizures and Physical Reactions",
+        "name":  "Three Flashes",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Automated flash analysis using PEAT. Manual review to verify no flashing content whatsoever, without the threshold exception allowed in 2.3.1.",
+        "automationJustification":  "Not fully automatable. PEAT can assist.\nManual needed: Same as 2.3.1 with stricter thresholds; review all animated content including UI transitions.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.3.3",
+        "principle":  "Operable",
+        "guidelineId":  "2.3",
+        "guidelineName":  "Seizures and Physical Reactions",
+        "name":  "Animation from Interactions",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test with prefers-reduced-motion media query active. Verify all motion triggered by interaction is either removed or reduced when reduced motion preference is set.",
+        "automationJustification":  "Not automatable.\nManual needed: Enable prefers-reduced-motion via DevTools/OS settings; visually confirm all animations are reduced or removed across all components.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.1",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Bypass Blocks",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Keyboard test: press Tab on page load and verify a visible skip navigation link appears. Activate the skip link and confirm focus moves to main content. Automated scan (Axe) to detect skip link presence.",
+        "automationJustification":  "Partially covered by Axe: Detects skip link presence in DOM (bypass).\nManual needed: Keyboard test to confirm skip links appear visually on focus and navigate to the correct target.",
+        "axeRuleIds":  [
+                           "bypass"
+                       ]
+    },
+    {
+        "id":  "2.4.2",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Page Titled",
+        "level":  "A",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated scan to verify \u003ctitle\u003e element exists and is non-empty. Manual review to confirm title is descriptive, unique, and identifies the page/site. Screen reader to hear the title announced on page load.",
+        "automationJustification":  "Covered by Axe: Detects missing or empty page title (document-title).\nManual needed: Human review to confirm titles are descriptive, unique per page, and follow a consistent naming convention.",
+        "axeRuleIds":  [
+                           "document-title"
+                       ]
+    },
+    {
+        "id":  "2.4.3",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Focus Order",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard-only test: tab through the entire page and verify focus order follows a logical reading/visual sequence. Check for positive tabindex values in source. Screen reader navigation to confirm logical reading order.",
+        "automationJustification":  "Not fully automatable. Axe can detect positive tabindex values.\nManual needed: Keyboard navigation to verify the tab sequence is logical and meaningful throughout the page.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.4",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Link Purpose (In Context)",
+        "level":  "A",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) to flag ambiguous link text (e.g., \u0027Click here\u0027, \u0027Read more\u0027). Manual review of all links in context to confirm purpose is determinable from link text or programmatic context.",
+        "automationJustification":  "Covered by Axe: Flags generic link text patterns (link-name).\nManual needed: Human review of links whose purpose depends on programmatic context (surrounding text, ARIA labels, headings).",
+        "axeRuleIds":  [
+                           "link-name"
+                       ]
+    },
+    {
+        "id":  "2.4.5",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Multiple Ways",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm at least two navigation mechanisms exist (e.g., site map, search, navigation menu, table of contents). Keyboard test to reach and use each mechanism.",
+        "automationJustification":  "Not automatable.\nManual needed: Site-level review to confirm at least two navigation pathways exist (e.g. site map + navigation menu) and are equivalent.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.6",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Headings and Labels",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) for heading structure. Manual review to verify headings accurately describe sections and labels describe their controls. Screen reader heading navigation (H key in NVDA/JAWS).",
+        "automationJustification":  "Partially covered by Axe: Detects structural heading issues and skipped levels.\nManual needed: Human content review to confirm all headings and labels are descriptive and meaningful.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.7",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Focus Visible",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard-only test: tab through all interactive elements and verify a visible focus indicator is present. Disable custom CSS (DevTools) to check if default indicator has been suppressed. Colour Contrast Analyser for focus indicator contrast.",
+        "automationJustification":  "Not fully automatable. Axe can flag CSS suppressing outlines.\nManual needed: Keyboard navigation across all interactive elements and states to confirm a visible focus indicator is always present.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.8",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Location",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to confirm the user\u0027s current location within the site is indicated via breadcrumbs, site map highlighting, step indicators, or other mechanisms. Verify these are keyboard and screen reader accessible.",
+        "automationJustification":  "Not automatable.\nManual needed: Human review of breadcrumbs, active nav items, and progress indicators to confirm they adequately communicate location within the site.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.9",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Link Purpose (Link Only)",
+        "level":  "AAA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Manual review of every link to confirm its purpose is determinable from link text alone, without surrounding context. Screen reader: navigate links in isolation (links list in NVDA/JAWS).",
+        "automationJustification":  "Partially covered by Axe: identical-links-same-purpose.\nManual needed: Screen reader list navigation to confirm all link text is self-descriptive without relying on surrounding context.",
+        "axeRuleIds":  [
+                           "identical-links-same-purpose"
+                       ]
+    },
+    {
+        "id":  "2.4.10",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Section Headings",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review to verify that section headings are used to organize long or complex content. Automated scan for heading presence. Screen reader heading navigation to assess usefulness.",
+        "automationJustification":  "Not automatable.\nManual needed: Human editorial review to confirm headings are used to meaningfully organise and title each section of content.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.11",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Focus Not Obscured (Minimum)",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard test: tab through all interactive elements and verify focused element is not completely hidden by sticky headers, footers, cookie banners, or overlays. Scroll page and retest with sticky elements present.",
+        "automationJustification":  "Not automatable.\nManual needed: Keyboard navigation with sticky/fixed UI elements present; confirm each focused element is fully visible and not obscured.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.12",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Focus Not Obscured (Enhanced)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard test: same as 2.4.11 but verify no part of the focused element is hidden — even partial obscuration is a failure. Test across all sticky UI layers.",
+        "automationJustification":  "Not automatable.\nManual needed: Pixel-level visual check across all scroll states and UI layers to confirm no focused element is even partially obscured.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.4.13",
+        "principle":  "Operable",
+        "guidelineId":  "2.4",
+        "guidelineName":  "Navigable",
+        "name":  "Focus Appearance",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard test: verify focus indicator is a minimum 2px perimeter. Colour Contrast Analyser: measure contrast between focused and unfocused states (minimum 3:1). Manual inspection of all interactive element focus styles.",
+        "automationJustification":  "Not fully automatable.\nManual needed: Measure focus indicator dimensions and contrast ratio against adjacent colours; verify compliance with minimum size and 3:1 contrast threshold.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.1",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Pointer Gestures",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: identify all multi-point or path-based gestures (pinch-zoom, swipe, drag). Verify all such functionality can be operated with a single-point action (e.g., tap, click). Test on touch device and with keyboard.",
+        "automationJustification":  "Not automatable.\nManual needed: Touch device testing to identify all multi-point or path-based gestures; confirm each has a single-pointer or keyboard alternative.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.2",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Pointer Cancellation",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: for all single-pointer operations, verify the down-event does not trigger the action, that users can abort by moving pointer off target before release, or that actions can be reversed.",
+        "automationJustification":  "Not automatable.\nManual needed: Interact with every clickable element to confirm activation occurs on up-event (mouseup/pointerup) and can be aborted or undone.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.3",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Label in Name",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe) for mismatches between visible label and accessible name. Manual screen reader verification: activate controls by voice to confirm visible label text triggers the correct control.",
+        "automationJustification":  "Partially covered by Axe: Detects accessible name not containing visible label text.\nManual needed: Voice control tool (Dragon NaturallySpeaking or Voice Control on iOS/macOS) to confirm all controls are activatable by speaking their visible label.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.4",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Motion Actuation",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: identify functionality triggered by device motion (shake, tilt). Verify equivalent UI control exists. Verify motion response can be disabled. Test with device motion disabled in accessibility settings.",
+        "automationJustification":  "Not automatable.\nManual needed: Physical device testing to trigger device motion interactions; verify alternatives exist and motion response can be disabled.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.5",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Target Size (Enhanced)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual measurement or browser extension to verify all interactive targets are at least 44×44 CSS pixels. DevTools inspection of element dimensions. Mobile device testing.",
+        "automationJustification":  "Not automatable. DevTools can measure dimensions.\nManual needed: Systematic review of all interactive targets to confirm minimum 44×44 CSS pixel size in all component states.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.6",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Concurrent Input Mechanisms",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: switch between mouse, keyboard, touch, and stylus input methods mid-session. Verify the application does not restrict or disable any input mechanism dynamically.",
+        "automationJustification":  "Not automatable.\nManual needed: Test with multiple input devices (mouse, keyboard, touch, switch) in sequence to confirm the application does not restrict input method switching.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.7",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Dragging Movements",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: identify all drag-and-drop interactions. Verify a single-pointer alternative mechanism exists for each (e.g., click-to-pick-up, click-to-drop, or keyboard alternative).",
+        "automationJustification":  "Not automatable.\nManual needed: Identify all drag-and-drop interactions; verify each has a single-pointer or keyboard alternative that achieves the same outcome.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "2.5.8",
+        "principle":  "Operable",
+        "guidelineId":  "2.5",
+        "guidelineName":  "Input Modalities",
+        "name":  "Target Size (Minimum)",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Automated scan or browser DevTools to measure clickable target sizes. Verify all targets are at least 24×24 CSS pixels or have sufficient spacing. Mobile device testing for touch targets.",
+        "automationJustification":  "Not fully automatable. Tools can measure target sizes for simple cases.\nManual needed: Measure spacing between targets using DevTools; manually apply the overlapping-circles exception calculation for densely packed controls.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.1.1",
+        "principle":  "Understandable",
+        "guidelineId":  "3.1",
+        "guidelineName":  "Readable",
+        "name":  "Language of Page",
+        "level":  "A",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) to detect missing or incorrect lang attribute on the \u003chtml\u003e element. Manual verification that the specified language matches the primary page language. Screen reader language switching test.",
+        "automationJustification":  "Covered by Axe: Detects missing or invalid lang attribute (html-has-lang, html-lang-valid, html-xml-lang-mismatch).\nManual needed: Spot-check that the declared language matches the actual page language, especially on multilingual sites.",
+        "axeRuleIds":  [
+                           "html-has-lang",
+                           "html-lang-valid",
+                           "html-xml-lang-mismatch"
+                       ]
+    },
+    {
+        "id":  "3.1.2",
+        "principle":  "Understandable",
+        "guidelineId":  "3.1",
+        "guidelineName":  "Readable",
+        "name":  "Language of Parts",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan for lang attribute on inline elements where language changes occur. Manual review of pages with mixed-language content to ensure inline lang attributes are present and correct. Screen reader test to confirm pronunciation switches.",
+        "automationJustification":  "Partially covered by Axe: Detects lang attribute presence on elements (valid-lang).\nManual needed: Content review and screen reader testing to identify all language changes within page content and confirm correct lang attribute is applied.",
+        "axeRuleIds":  [
+                           "valid-lang"
+                       ]
+    },
+    {
+        "id":  "3.1.3",
+        "principle":  "Understandable",
+        "guidelineId":  "3.1",
+        "guidelineName":  "Readable",
+        "name":  "Unusual Words",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual content review to identify jargon, idioms, or unusual terms. Verify a definition mechanism (glossary, inline definition, tooltip, abbreviation expansion) is provided and accessible.",
+        "automationJustification":  "Not automatable.\nManual needed: Human language expert review to identify unusual words and verify adequate definitions or glossary links are provided.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.1.4",
+        "principle":  "Understandable",
+        "guidelineId":  "3.1",
+        "guidelineName":  "Readable",
+        "name":  "Abbreviations",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual content review to identify all abbreviations. Verify expanded form is provided at first use or via \u003cabbr\u003e element with title attribute. Screen reader to confirm expansions are announced.",
+        "automationJustification":  "Not automatable.\nManual needed: Content review to identify all abbreviations and confirm each has an accessible expansion (title attribute, inline definition, or glossary).",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.1.5",
+        "principle":  "Understandable",
+        "guidelineId":  "3.1",
+        "guidelineName":  "Readable",
+        "name":  "Reading Level",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual content review or readability analysis tool (e.g., Flesch-Kincaid) to assess content reading level. Verify supplemental content at lower reading level is available where primary content requires advanced reading ability.",
+        "automationJustification":  "Not automatable.\nManual needed: Readability tool (Flesch-Kincaid or equivalent) for objective scoring; human judgment to confirm supplementary content is provided where reading level exceeds lower secondary.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.1.6",
+        "principle":  "Understandable",
+        "guidelineId":  "3.1",
+        "guidelineName":  "Readable",
+        "name":  "Pronunciation",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual content review to identify words where pronunciation is critical for comprehension. Verify pronunciation guidance is provided (phonetic notation, audio, ruby annotation). Screen reader test.",
+        "automationJustification":  "Not automatable.\nManual needed: Linguistic expert review to confirm pronunciation guidance is available for all words where meaning is ambiguous without it.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.2.1",
+        "principle":  "Understandable",
+        "guidelineId":  "3.2",
+        "guidelineName":  "Predictable",
+        "name":  "On Focus",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Keyboard-only test: tab through all interactive elements and verify no context change (page navigation, form submission, popup) occurs on focus alone. Screen reader test to observe focus-triggered announcements.",
+        "automationJustification":  "Not automatable.\nManual needed: Keyboard navigation through all interactive elements; observe and document any unexpected context changes triggered by focus alone.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.2.2",
+        "principle":  "Understandable",
+        "guidelineId":  "3.2",
+        "guidelineName":  "Predictable",
+        "name":  "On Input",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: interact with all form inputs (checkboxes, radio buttons, select menus, text fields) and verify no unexpected context change occurs on input. Verify any automatic submission includes prior warning.",
+        "automationJustification":  "Not automatable.\nManual needed: Interact with every form element and UI control; observe and document any unexpected page or context changes triggered by input.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.2.3",
+        "principle":  "Understandable",
+        "guidelineId":  "3.2",
+        "guidelineName":  "Predictable",
+        "name":  "Consistent Navigation",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review across multiple pages to verify navigation components appear in the same relative order consistently. Compare navigation position across page templates.",
+        "automationJustification":  "Not automatable.\nManual needed: Cross-page human review to confirm navigation components appear in the same relative order across all pages.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.2.4",
+        "principle":  "Understandable",
+        "guidelineId":  "3.2",
+        "guidelineName":  "Predictable",
+        "name":  "Consistent Identification",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review across multiple pages to verify components with the same functionality have consistent labels, icons, and accessible names. Cross-page inspection of repeated components.",
+        "automationJustification":  "Not automatable.\nManual needed: Cross-page review to confirm equivalent components (e.g. search, icons, buttons) are identified consistently in both label and accessible name.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.2.5",
+        "principle":  "Understandable",
+        "guidelineId":  "3.2",
+        "guidelineName":  "Predictable",
+        "name":  "Change on Request",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: verify all context changes (page navigation, refreshes, new windows) are initiated by explicit user action. Verify a mechanism exists to turn off automatic changes. Test auto-refresh and automatic redirects.",
+        "automationJustification":  "Not automatable. Axe flags some meta-refresh patterns (meta-refresh-no-exceptions).\nManual needed: Comprehensive interaction review to confirm all context changes are user-initiated; no automatic redirects or updates occur without user action.",
+        "axeRuleIds":  [
+                           "meta-refresh-no-exceptions"
+                       ]
+    },
+    {
+        "id":  "3.2.6",
+        "principle":  "Understandable",
+        "guidelineId":  "3.2",
+        "guidelineName":  "Predictable",
+        "name":  "Consistent Help",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review across multiple pages to verify help mechanisms (phone number, chat, contact form, FAQ link) appear in the same relative position on each page where they are present.",
+        "automationJustification":  "Not automatable.\nManual needed: Cross-page review to confirm help mechanisms appear in the same relative position across all pages.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.1",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Error Identification",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: submit forms with invalid data and verify error messages identify the specific field in error and describe the error in text. Automated scan (Axe) for associated error messaging. Screen reader to confirm error announcement.",
+        "automationJustification":  "Not fully automatable. Axe detects common ARIA error patterns.\nManual needed: Form submission with invalid data; screen reader verification that error messages are specific, descriptive, and announced appropriately.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.2",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Labels or Instructions",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) for unlabelled form inputs. Manual review of all forms to verify labels and instructions are clear and present before input. Keyboard test to confirm label programmatic association.",
+        "automationJustification":  "Partially covered by Axe: Detects missing labels and programmatic association failures (form-field-multiple-labels).\nManual needed: Human content review to confirm labels and instructions are sufficiently clear for all user inputs.",
+        "axeRuleIds":  [
+                           "form-field-multiple-labels"
+                       ]
+    },
+    {
+        "id":  "3.3.3",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Error Suggestion",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: submit forms with invalid data and verify error messages suggest specific corrections where known (e.g., \u0027Date must be in DD/MM/YYYY format\u0027). Screen reader to confirm suggestions are announced.",
+        "automationJustification":  "Not automatable.\nManual needed: Submit forms with invalid data and evaluate whether error suggestions are specific and actionable enough to guide correction.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.4",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Error Prevention (Legal, Financial, Data)",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test of high-stakes submission flows: verify submissions are reversible, data can be reviewed before final submission, or a confirmation step is provided. Keyboard and screen reader test of review/confirm mechanisms.",
+        "automationJustification":  "Not automatable.\nManual needed: Complete legal/financial/data submission flows; verify reversibility, error correction step, or explicit confirmation step is present.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.5",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Help",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual review of all form fields to verify context-sensitive help is available where format requirements or specialized input is needed. Keyboard access to help mechanisms. Screen reader to confirm help text is accessible.",
+        "automationJustification":  "Not automatable.\nManual needed: Review each form input to confirm context-sensitive help is available and accessible when needed.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.6",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Error Prevention (All)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test of all submission flows (not just legal/financial): verify submissions are checkable, reversible, or include confirmation mechanisms. Keyboard and screen reader testing of all submission flows.",
+        "automationJustification":  "Not automatable.\nManual needed: Exhaustive manual testing across all form types to confirm all submissions are reversible, correctable, or explicitly confirmed.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.7",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Redundant Entry",
+        "level":  "A",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test of multi-step forms: verify information previously entered is either auto-populated, selectable from a list, or not re-requested in the same session. Test form completion flows end-to-end.",
+        "automationJustification":  "Not automatable.\nManual needed: Complete multi-step form journeys; identify all requests for information provided in earlier steps and confirm auto-population or selection is offered.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.8",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Accessible Authentication (Minimum)",
+        "level":  "AA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: verify that no cognitive function test (e.g., password recall, CAPTCHA puzzle) is required for authentication, OR that an alternative method or mechanism to assist (e.g., password manager support, copy-paste allowed, magic link) is provided.",
+        "automationJustification":  "Not automatable.\nManual needed: Test all authentication paths; confirm no cognitive function test (puzzle, memorisation, transcription) is required without an alternative.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "3.3.9",
+        "principle":  "Understandable",
+        "guidelineId":  "3.3",
+        "guidelineName":  "Input Assistance",
+        "name":  "Accessible Authentication (Enhanced)",
+        "level":  "AAA",
+        "testingMethod":  "Manual",
+        "howToTest":  "Manual test: same as 3.3.8 but with no exception for object recognition or personal content. Verify no CAPTCHA or cognitive test of any type is required.",
+        "automationJustification":  "Not automatable.\nManual needed: Stricter than 3.3.8; confirm complete absence of cognitive function tests across all authentication flows.",
+        "axeRuleIds":  [
+
+                       ]
+    },
+    {
+        "id":  "4.1.2",
+        "principle":  "Robust",
+        "guidelineId":  "4.1",
+        "guidelineName":  "Compatible",
+        "name":  "Name, Role, Value",
+        "level":  "A",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe, WAVE) for missing names, roles, and state/property values on all UI components. Manual accessibility tree inspection (browser DevTools). Screen reader interaction to verify all controls are announced correctly.",
+        "automationJustification":  "Covered by Axe: Detects missing labels, incorrect roles, missing states for common components (label, link-name, select-name, frame-title, nested-interactive, etc.).\nManual needed: Accessibility tree inspection (DevTools / Axe panel) and screen reader testing for complex custom widgets (date pickers, carousels, data grids).",
+        "axeRuleIds":  [
+                           "frame-title-unique",
+                           "frame-title",
+                           "input-button-name",
+                           "input-image-alt",
+                           "label",
+                           "link-name",
+                           "nested-interactive",
+                           "select-name",
+                           "summary-name",
+                           "avoid-inline-spacing"
+                       ]
+    },
+    {
+        "id":  "4.1.3",
+        "principle":  "Robust",
+        "guidelineId":  "4.1",
+        "guidelineName":  "Compatible",
+        "name":  "Status Messages",
+        "level":  "AA",
+        "testingMethod":  "Semi-Automated",
+        "howToTest":  "Automated scan (Axe) for status message elements missing role=status or role=alert. Manual test: trigger status messages (form success, cart update, error) and verify screen reader announces them without focus movement.",
+        "automationJustification":  "Partially covered by Axe: Detects missing live region roles on common status patterns.\nManual needed: Trigger all dynamic status messages (form success, errors, live updates); screen reader verification that messages are announced without moving focus.",
+        "axeRuleIds":  [
+
+                       ]
+    }
+]
