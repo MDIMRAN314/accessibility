@@ -1,6 +1,35 @@
 const puppeteer = require("puppeteer");
 const validator = require("validator");
 
+const DEFAULT_BROWSER_NAVIGATION_TIMEOUT = 120000;
+const DEFAULT_BROWSER_NETWORK_IDLE_TIMEOUT = 10000;
+
+const clampNumber = (value, minimum, maximum, fallback) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(Math.trunc(number), minimum), maximum);
+};
+
+const getBrowserNavigationTimeout = () =>
+  clampNumber(
+    process.env.BROWSER_NAVIGATION_TIMEOUT,
+    10000,
+    300000,
+    DEFAULT_BROWSER_NAVIGATION_TIMEOUT,
+  );
+
+const getBrowserNetworkIdleTimeout = () =>
+  clampNumber(
+    process.env.BROWSER_NETWORK_IDLE_TIMEOUT,
+    1000,
+    60000,
+    DEFAULT_BROWSER_NETWORK_IDLE_TIMEOUT,
+  );
+
 class URLValidator {
   static isValidURL(url) {
     try {
@@ -23,11 +52,24 @@ class URLValidator {
         args: ["--no-sandbox"],
       });
       const page = await browser.newPage();
+      const navigationTimeout = getBrowserNavigationTimeout();
+
+      page.setDefaultTimeout(navigationTimeout);
+      page.setDefaultNavigationTimeout(navigationTimeout);
 
       const response = await page.goto(url, {
-        waitUntil: "networkidle2",
-        timeout: 30000,
+        waitUntil: "domcontentloaded",
+        timeout: navigationTimeout,
       });
+
+      if (typeof page.waitForNetworkIdle === "function") {
+        await page
+          .waitForNetworkIdle({
+            idleTime: 750,
+            timeout: getBrowserNetworkIdleTimeout(),
+          })
+          .catch(() => {});
+      }
 
       if (!response.ok()) {
         throw new Error(`HTTP Error: ${response.status()}`);

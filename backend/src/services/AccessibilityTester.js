@@ -48,17 +48,13 @@ const SKIPPED_EXTENSIONS = new Set([
   "zip",
 ]);
 
-const TRACKING_PARAMS = [
-  "fbclid",
-  "gclid",
-  "mc_cid",
-  "mc_eid",
-  "msclkid",
-];
+const TRACKING_PARAMS = ["fbclid", "gclid", "mc_cid", "mc_eid", "msclkid"];
 
 const MAX_ELEMENT_SCREENSHOTS_PER_PAGE = 25;
 const HIGHLIGHT_ATTRIBUTE = "data-accessibility-poc-highlight";
 const HIGHLIGHT_STYLE_ID = "accessibility-poc-highlight-style";
+const DEFAULT_BROWSER_NAVIGATION_TIMEOUT = 180000;
+const DEFAULT_BROWSER_NETWORK_IDLE_TIMEOUT = 10000;
 
 class AccessibilityTester {
   static async runAxeTests(
@@ -117,7 +113,10 @@ class AccessibilityTester {
       if (options.scanScope === "Site" && options.includeSitemap) {
         const sitemapUrls = await this.discoverSitemapUrls(startUrl, options);
         sitemapUrls.forEach((candidateUrl) => {
-          if (queuedUrls.size >= options.maxPages || queuedUrls.has(candidateUrl)) {
+          if (
+            queuedUrls.size >= options.maxPages ||
+            queuedUrls.has(candidateUrl)
+          ) {
             return;
           }
 
@@ -151,7 +150,10 @@ class AccessibilityTester {
           scannedPages.push(pageResult.page);
           issues.push(...pageResult.issues);
 
-          if (options.scanScope === "Site" && candidate.depth < options.maxDepth) {
+          if (
+            options.scanScope === "Site" &&
+            candidate.depth < options.maxDepth
+          ) {
             pageResult.links.forEach((link) => {
               if (
                 queue.length + scannedPages.length >= options.maxPages ||
@@ -203,8 +205,7 @@ class AccessibilityTester {
             .length,
           pagesFailed: scannedPages.filter((page) => page.status === "Failed")
             .length,
-          pagesSkipped:
-            Math.max(queuedUrls.size - scannedPages.length, 0),
+          pagesSkipped: Math.max(queuedUrls.size - scannedPages.length, 0),
         },
       };
     } catch (error) {
@@ -218,8 +219,18 @@ class AccessibilityTester {
 
   static normalizeScanOptions(scanOptions = {}) {
     const scanScope = scanOptions.scanScope === "Site" ? "Site" : "Page";
-    const maxPages = this.clampNumber(scanOptions.maxPages, 1, 50, DEFAULT_SCAN_OPTIONS.maxPages);
-    const maxDepth = this.clampNumber(scanOptions.maxDepth, 0, 5, DEFAULT_SCAN_OPTIONS.maxDepth);
+    const maxPages = this.clampNumber(
+      scanOptions.maxPages,
+      1,
+      50,
+      DEFAULT_SCAN_OPTIONS.maxPages,
+    );
+    const maxDepth = this.clampNumber(
+      scanOptions.maxDepth,
+      0,
+      5,
+      DEFAULT_SCAN_OPTIONS.maxDepth,
+    );
 
     return {
       scanScope,
@@ -240,6 +251,24 @@ class AccessibilityTester {
     return Math.min(Math.max(Math.trunc(number), minimum), maximum);
   }
 
+  static getBrowserNavigationTimeout() {
+    return this.clampNumber(
+      process.env.BROWSER_NAVIGATION_TIMEOUT,
+      10000,
+      300000,
+      DEFAULT_BROWSER_NAVIGATION_TIMEOUT,
+    );
+  }
+
+  static getBrowserNetworkIdleTimeout() {
+    return this.clampNumber(
+      process.env.BROWSER_NETWORK_IDLE_TIMEOUT,
+      1000,
+      60000,
+      DEFAULT_BROWSER_NETWORK_IDLE_TIMEOUT,
+    );
+  }
+
   static async scanPage({
     browser,
     url,
@@ -252,15 +281,21 @@ class AccessibilityTester {
     pageIndex,
   }) {
     const page = await browser.newPage();
+    const navigationTimeout = this.getBrowserNavigationTimeout();
 
     try {
-      page.setDefaultTimeout(45000);
-      await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 1 });
+      page.setDefaultTimeout(navigationTimeout);
+      page.setDefaultNavigationTimeout(navigationTimeout);
+      await page.setViewport({
+        width: 1440,
+        height: 1000,
+        deviceScaleFactor: 1,
+      });
       await page.setBypassCSP(true);
 
       const response = await page.goto(url, {
-        waitUntil: "networkidle2",
-        timeout: 45000,
+        waitUntil: "domcontentloaded",
+        timeout: navigationTimeout,
       });
 
       if (!response || !response.ok()) {
@@ -269,6 +304,7 @@ class AccessibilityTester {
         );
       }
 
+      await this.waitForNetworkToSettle(page);
       await this.preparePageForScan(page, options);
       await page.evaluate(axe.source);
 
@@ -307,9 +343,13 @@ class AccessibilityTester {
           status: "Scanned",
           statusCode: response.status(),
           issueCount: issues.filter((issue) =>
-            ["Fail", "Error", "Warning", "Manual Review", "Best Practice"].includes(
-              issue.status,
-            ),
+            [
+              "Fail",
+              "Error",
+              "Warning",
+              "Manual Review",
+              "Best Practice",
+            ].includes(issue.status),
           ).length,
           error: null,
         },
@@ -332,6 +372,20 @@ class AccessibilityTester {
     }
   }
 
+  static async waitForNetworkToSettle(page) {
+    if (typeof page.waitForNetworkIdle !== "function") {
+      await page.waitForTimeout(1000).catch(() => {});
+      return;
+    }
+
+    await page
+      .waitForNetworkIdle({
+        idleTime: 750,
+        timeout: this.getBrowserNetworkIdleTimeout(),
+      })
+      .catch(() => {});
+  }
+
   static async autoScrollPage(page) {
     await page.evaluate(async () => {
       await new Promise((resolve) => {
@@ -342,7 +396,9 @@ class AccessibilityTester {
         let stableHeightCount = 0;
 
         const getHeight = () =>
-          document.scrollingElement?.scrollHeight || document.body.scrollHeight || 0;
+          document.scrollingElement?.scrollHeight ||
+          document.body.scrollHeight ||
+          0;
 
         const timer = setInterval(() => {
           const currentHeight = getHeight();
@@ -371,7 +427,9 @@ class AccessibilityTester {
     });
 
     if (typeof page.waitForNetworkIdle === "function") {
-      await page.waitForNetworkIdle({ idleTime: 750, timeout: 5000 }).catch(() => {});
+      await page
+        .waitForNetworkIdle({ idleTime: 750, timeout: 5000 })
+        .catch(() => {});
       return;
     }
 
@@ -380,9 +438,7 @@ class AccessibilityTester {
 
   static async discoverPageLinks(page, baseUrl, options) {
     const links = await page.$$eval("a[href]", (anchors) =>
-      anchors
-        .map((anchor) => anchor.href)
-        .filter(Boolean),
+      anchors.map((anchor) => anchor.href).filter(Boolean),
     );
 
     return this.uniqueNormalizedUrls(links, baseUrl, options);
@@ -571,15 +627,14 @@ class AccessibilityTester {
 
   static hasSkippedExtension(pathname = "") {
     const cleanPath = pathname.toLowerCase().split("?")[0];
-    const extension = cleanPath.includes(".")
-      ? cleanPath.split(".").pop()
-      : "";
+    const extension = cleanPath.includes(".") ? cleanPath.split(".").pop() : "";
 
     return SKIPPED_EXTENSIONS.has(extension);
   }
 
   static isAllowedCrawlHost(candidate, base) {
-    const normalizeHost = (hostname) => hostname.toLowerCase().replace(/^www\./, "");
+    const normalizeHost = (hostname) =>
+      hostname.toLowerCase().replace(/^www\./, "");
 
     if (normalizeHost(candidate.hostname) !== normalizeHost(base.hostname)) {
       return false;
@@ -588,7 +643,11 @@ class AccessibilityTester {
     return candidate.port === base.port;
   }
 
-  static getAxeTags(conformanceLevel, wcagVersion, includeBestPractices = false) {
+  static getAxeTags(
+    conformanceLevel,
+    wcagVersion,
+    includeBestPractices = false,
+  ) {
     const level = String(conformanceLevel || "AA").toLowerCase();
     const tags = ["wcag2a"];
 
@@ -663,10 +722,9 @@ class AccessibilityTester {
 
       const config = wcagStandards[wcagVersion]?.guidelines?.[guideline];
       const isBestPractice = result.tags?.includes("best-practice");
-      const issueType =
-        isBestPractice
-          ? "Best Practices"
-          : criterionConfig?.type || config?.type || "Automated";
+      const issueType = isBestPractice
+        ? "Best Practices"
+        : criterionConfig?.type || config?.type || "Automated";
       const status =
         resultType === "passes"
           ? "Pass"
@@ -715,12 +773,19 @@ class AccessibilityTester {
     axeResults.incomplete.forEach((result, index) =>
       pushResult(result, "incomplete", index),
     );
-    axeResults.passes.forEach((result, index) => pushResult(result, "passes", index));
+    axeResults.passes.forEach((result, index) =>
+      pushResult(result, "passes", index),
+    );
 
     return issues;
   }
 
-  static mapNodeToElement(node, index, pageContext = {}, status = "Manual Review") {
+  static mapNodeToElement(
+    node,
+    index,
+    pageContext = {},
+    status = "Manual Review",
+  ) {
     const selector = node.target ? node.target.join(" > ") : "";
     const html = node.html || "";
 
@@ -796,17 +861,34 @@ class AccessibilityTester {
       .toLowerCase();
 
     if (text.includes("heading")) return "Headings";
-    if (text.includes("landmark") || text.includes("region")) return "Landmarks";
+    if (text.includes("landmark") || text.includes("region"))
+      return "Landmarks";
     if (text.includes("title")) return "Page Title";
     if (text.includes("tab")) return "Tab Order";
     if (text.includes("focus")) return "Focus Order";
     if (text.includes("bypass") || text.includes("skip")) return "Skip Links";
-    if (text.includes("form") || text.includes("input") || text.includes("label")) return "Forms";
-    if (text.includes("image") || text.includes("img") || text.includes("non-text")) return "Images";
-    if (text.includes("video") || text.includes("audio") || text.includes("caption")) return "Video/Audio";
+    if (
+      text.includes("form") ||
+      text.includes("input") ||
+      text.includes("label")
+    )
+      return "Forms";
+    if (
+      text.includes("image") ||
+      text.includes("img") ||
+      text.includes("non-text")
+    )
+      return "Images";
+    if (
+      text.includes("video") ||
+      text.includes("audio") ||
+      text.includes("caption")
+    )
+      return "Video/Audio";
     if (text.includes("link") || text.includes("button")) return "Link/Buttons";
     if (text.includes("aria") || text.includes("role")) return "ARIA";
-    if (text.includes("contrast") || text.includes("color")) return "Color Contrast";
+    if (text.includes("contrast") || text.includes("color"))
+      return "Color Contrast";
     if (text.includes("hidden")) return "Hidden Content";
     if (text.includes("language") || text.includes("lang")) return "Language";
     return "Best Practices";
@@ -909,7 +991,11 @@ class AccessibilityTester {
       });
       const page = await browser.newPage();
 
-      await page.goto(url, { waitUntil: "networkidle2" });
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: this.getBrowserNavigationTimeout(),
+      });
+      await this.waitForNetworkToSettle(page);
 
       const element = await page.$(selector);
       if (!element) {
