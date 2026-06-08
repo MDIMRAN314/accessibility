@@ -4,6 +4,8 @@
   "description": "Backend for accessibility testing application",
   "main": "src/index.js",
   "scripts": {
+    "build": "echo \"No backend build step required\"",
+    "install:chrome": "npx puppeteer browsers install chrome",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest"
