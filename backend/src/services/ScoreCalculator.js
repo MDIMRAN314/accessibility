@@ -1,5 +1,21 @@
 const { getSuccessCriteriaForVersion } = require("../config/wcagStandards");
 
+const DEFAULT_GUIDELINE_WEIGHTS = {
+  "1.1": 10,
+  "1.2": 5,
+  "1.3": 8,
+  "1.4": 7,
+  "2.1": 10,
+  "2.2": 4,
+  "2.3": 2,
+  "2.4": 10,
+  "2.5": 6,
+  "3.1": 7,
+  "3.2": 8,
+  "3.3": 8,
+  "4.1": 15,
+};
+
 class ScoreCalculator {
   static calculate(reportLike) {
     const version = reportLike.wcagVersion || "2.2";
@@ -13,12 +29,17 @@ class ScoreCalculator {
       sourceWeightages instanceof Map
         ? Object.fromEntries(sourceWeightages.entries())
         : sourceWeightages;
-    const guidelineIds = Object.keys(weightages).length
+    const hasConfiguredWeightages = Object.keys(weightages).length > 0;
+    const guidelineIds = hasConfiguredWeightages
       ? Object.keys(weightages)
       : Array.from(new Set(Object.values(criteria).map((item) => item.guideline)));
 
     const configuredWeightTotal = guidelineIds.reduce(
-      (total, guidelineId) => total + Number(weightages[guidelineId] || 0),
+      (total, guidelineId) => total + this.getGuidelineWeight(
+        guidelineId,
+        weightages,
+        hasConfiguredWeightages,
+      ),
       0,
     );
 
@@ -42,10 +63,14 @@ class ScoreCalculator {
         assessedSuccessCriteria > 0
           ? passedSuccessCriteria / assessedSuccessCriteria
           : null;
-      const weight = Number(weightages[guidelineId] || 0);
+      const weight = this.getGuidelineWeight(
+        guidelineId,
+        weightages,
+        hasConfiguredWeightages,
+      );
       const scoredWeight = assessedSuccessCriteria > 0 ? weight : 0;
       const complianceScore =
-        guidelineScore === null ? 0 : scoredWeight * guidelineScore;
+        guidelineScore === null ? 0 : weight * guidelineScore;
 
       return {
         guidelineId,
@@ -68,8 +93,8 @@ class ScoreCalculator {
       0,
     );
     const normalizedScore =
-      scoredWeightTotal > 0
-        ? Math.round((rawComplianceScore / scoredWeightTotal) * 100)
+      configuredWeightTotal > 0
+        ? Math.round((rawComplianceScore / configuredWeightTotal) * 100)
         : 0;
 
     return {
@@ -81,11 +106,20 @@ class ScoreCalculator {
           configuredWeightTotal - scoredWeightTotal,
           0,
         ),
+        normalizationWeightTotal: configuredWeightTotal,
         rawComplianceScore,
         normalizedScore,
         guidelines,
       },
     };
+  }
+
+  static getGuidelineWeight(guidelineId, weightages, hasConfiguredWeightages) {
+    if (hasConfiguredWeightages) {
+      return Number(weightages[guidelineId] || 0);
+    }
+
+    return Number(DEFAULT_GUIDELINE_WEIGHTS[guidelineId] || 0);
   }
 
   static deriveCriterionState(criterionIssues) {
