@@ -70,13 +70,17 @@ class ScoreCalculator {
     const normalizedScore =
       scoredWeightTotal > 0
         ? Math.round((rawComplianceScore / scoredWeightTotal) * 100)
-        : 100;
+        : 0;
 
     return {
       accessibilityScore: Math.max(0, Math.min(100, normalizedScore)),
       scoreBreakdown: {
         configuredWeightTotal,
         scoredWeightTotal,
+        unassessedWeightTotal: Math.max(
+          configuredWeightTotal - scoredWeightTotal,
+          0,
+        ),
         rawComplianceScore,
         normalizedScore,
         guidelines,

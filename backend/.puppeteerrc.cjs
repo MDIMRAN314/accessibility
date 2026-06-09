@@ -1,5 +1,12 @@
 const { join } = require("path");
 
-module.exports = {
-  cacheDirectory: join(__dirname, ".cache", "puppeteer"),
-};
+const cacheDirectory = process.env.PUPPETEER_CACHE_DIR;
+const useProjectCache =
+  cacheDirectory || process.env.NODE_ENV === "production" || process.env.RENDER;
+
+module.exports = useProjectCache
+  ? {
+      cacheDirectory:
+        cacheDirectory || join(__dirname, ".cache", "puppeteer"),
+    }
+  : {};
