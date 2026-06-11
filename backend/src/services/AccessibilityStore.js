@@ -303,22 +303,30 @@ class AccessibilityStore {
       return issue.status;
     }
 
-    if (statuses.every((status) => status === "NA")) {
+    const activeStatuses = statuses.filter((status) => status !== "Suppressed");
+
+    if (activeStatuses.length === 0) {
+      return "Suppressed";
+    }
+
+    if (activeStatuses.every((status) => status === "NA")) {
       return "NA";
     }
 
-    if (statuses.some((status) => ["Fail", "Error"].includes(status))) {
+    if (activeStatuses.some((status) => ["Fail", "Error"].includes(status))) {
       return "Fail";
     }
 
     if (
-      statuses.some((status) => ["Warning", "Manual Review"].includes(status))
+      activeStatuses.some((status) =>
+        ["Warning", "Manual Review"].includes(status),
+      )
     ) {
       return "Warning";
     }
 
     if (
-      statuses.every((status) =>
+      activeStatuses.every((status) =>
         ["Pass", "Approved Exception", "Not an issue", "Best Practice"].includes(
           status,
         ),

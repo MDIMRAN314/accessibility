@@ -5,7 +5,7 @@
 - Node.js 14+
 - npm or yarn
 - MongoDB 4.0+ (optional - can use mock data)
-- Google Chrome or Chromium (for Puppeteer)
+- Playwright Chromium (`npm run install:chrome` from `backend`)
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ API_TIMEOUT=300000
 ### Frontend Environment Variables (.env)
 
 ```
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=/api
 ```
 
 ## Database Setup
@@ -88,6 +88,15 @@ Without MongoDB, the application will work with in-memory storage (data will be 
 2. **Guideline View**: Issues organized by WCAG guidelines and principles
 3. **Element View**: Issues organized by affected HTML elements
 
+### Accessibility Engines
+
+- WCAG 2.0 A/AA: axe-core, IBM Equal Access, HTMLCS
+- WCAG 2.1 A/AA: axe-core, IBM Equal Access, HTMLCS
+- WCAG 2.2 A/AA: axe-core, IBM Equal Access
+- AAA: IBM Equal Access is not used because its named WCAG policies support A and AA only
+- Aggregation: if any engine reports Fail, the final criterion status is Fail
+- Deduplication: repeated entries for the same criterion, page, status, and element are merged
+
 ### Issue Management
 
 - Track issue status (Pass, Fail, Warning, Manual Review, etc.)
@@ -100,22 +109,24 @@ Without MongoDB, the application will work with in-memory storage (data will be 
 
 ## Available WCAG Standards
 
-### WCAG 2.0 (30 rules)
+### WCAG 2.0 (61 success criteria)
 
 - 4 Principles: Perceivable, Operable, Understandable, Robust
 - 12 Guidelines
-- 30 Success Criteria
+- 61 Success Criteria
 
-### WCAG 2.1 (56 rules)
+### WCAG 2.1 (78 success criteria)
 
 - All WCAG 2.0 content
 - Plus additional guidelines for Input Modalities
-- 56 Success Criteria
+- 13 Guidelines
+- 78 Success Criteria
 
-### WCAG 2.2 (86 rules)
+### WCAG 2.2 (86 success criteria)
 
 - All WCAG 2.1 content
 - Additional success criteria for focus and input
+- 13 Guidelines
 - 86 Success Criteria
 
 ## Supported Country Regulations

@@ -5,23 +5,25 @@
   "main": "src/index.js",
   "scripts": {
     "build": "echo \"No backend build step required\"",
-    "install:chrome": "node node_modules/puppeteer/install.js",
+    "install:chrome": "playwright install chromium",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@pa11y/html_codesniffer": "^2.6.0",
+    "accessibility-checker-engine": "^4.0.26",
+    "axe-core": "^4.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "mongoose": "^7.5.0",
-    "axe-core": "^4.7.2",
-    "puppeteer": "^20.7.2",
-    "validator": "^13.11.0",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "playwright": "^1.60.0",
+    "validator": "^13.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
   }
 }

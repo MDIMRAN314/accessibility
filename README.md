@@ -1,11 +1,11 @@
 # Accessibility Testing Workbench
 
-A comprehensive web application for testing website accessibility against WCAG 2.0, 2.1, and 2.2 standards with full support for A, AA, and AAA conformance levels.
+A comprehensive web application for testing website accessibility against WCAG 2.0, 2.1, and 2.2 standards with support for A, AA, and AAA conformance levels.
 
 ## Features
 
 - **Multi-Format Testing**: Support for Web, Mobile, and PDF accessibility testing
-- **WCAG Compliance**: Full support for WCAG 2.0, 2.1, and 2.2 standards
+- **WCAG Compliance**: WCAG 2.0 and 2.1 scans use Axe, IBM Equal Access, and HTMLCS; WCAG 2.2 scans use Axe and IBM Equal Access
 - **Conformance Levels**: A, AA, and AAA compliance checks
 - **Country Regulations**: Support for ADA, PSBAR, EAA, and more
 - **Comprehensive Reports**: Summary, Guideline View, and Element View reports
@@ -27,8 +27,22 @@ A comprehensive web application for testing website accessibility against WCAG 2
 - **Node.js** - Runtime
 - **Express** - Web framework
 - **MongoDB** - Database
-- **Puppeteer** - Browser automation
+- **Playwright** - Browser automation
 - **Axe-Core** - Accessibility testing engine
+- **IBM Equal Access** - WCAG 2.0/2.1/2.2 A and AA accessibility engine
+- **HTMLCS** - WCAG 2.0/2.1 accessibility engine
+
+## Engine Aggregation
+
+Criterion decisions use an any-fail-wins rule:
+
+```text
+If axe-core, IBM Equal Access, or HTMLCS reports Fail, the final criterion status is Fail.
+```
+
+Redundant entries for the same criterion, page, status, and affected element are merged into one representative issue. The retained issue stores an `engineResults` summary so the report still shows which engines contributed Pass, Fail, Warning, or Manual Review evidence.
+
+IBM Equal Access is run only for WCAG A and AA because its named WCAG policies are A/AA. AAA scans use axe-core and HTMLCS where available; WCAG 2.2 AAA remains mostly manual or semi-automated.
 
 ## Project Structure
 

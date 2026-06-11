@@ -76,4 +76,100 @@ describe("ScoreCalculator", () => {
     expect(guideline.passedSuccessCriteria).toBe(0);
     expect(guideline.guidelineScore).toBe(0);
   });
+
+  it("fails a criterion when any engine reports a failure", () => {
+    const result = ScoreCalculator.calculate({
+      wcagVersion: "2.2",
+      requestDetails: {
+        successCriteriaWeightage: {
+          "1.1": 100,
+        },
+      },
+      issues: [
+        {
+          criterion: "1.1.1",
+          status: "Pass",
+          type: "Automated",
+          engine: "axe-core",
+        },
+        {
+          criterion: "1.1.1",
+          status: "Fail",
+          type: "Automated",
+          engine: "ibm-equal-access",
+        },
+        {
+          criterion: "1.1.1",
+          status: "Fail",
+          type: "Automated",
+          engine: "htmlcs",
+        },
+      ],
+    });
+
+    expect(result.accessibilityScore).toBe(0);
+    expect(result.scoreBreakdown.guidelines[0].passedSuccessCriteria).toBe(0);
+  });
+
+  it("keeps a criterion failed even when another engine passes", () => {
+    const result = ScoreCalculator.calculate({
+      wcagVersion: "2.2",
+      requestDetails: {
+        successCriteriaWeightage: {
+          "1.1": 100,
+        },
+      },
+      issues: [
+        {
+          criterion: "1.1.1",
+          status: "Manual Review",
+          type: "Automated",
+          engine: "axe-core",
+        },
+        {
+          criterion: "1.1.1",
+          status: "Pass",
+          type: "Automated",
+          engine: "ibm-equal-access",
+        },
+        {
+          criterion: "1.1.1",
+          status: "Fail",
+          type: "Automated",
+          engine: "htmlcs",
+        },
+      ],
+    });
+
+    expect(result.accessibilityScore).toBe(0);
+    expect(result.scoreBreakdown.guidelines[0].passedSuccessCriteria).toBe(0);
+  });
+
+  it("fails a criterion when axe-core fails even if another engine passes", () => {
+    const result = ScoreCalculator.calculate({
+      wcagVersion: "2.2",
+      requestDetails: {
+        successCriteriaWeightage: {
+          "1.1": 100,
+        },
+      },
+      issues: [
+        {
+          criterion: "1.1.1",
+          status: "Fail",
+          type: "Automated",
+          engine: "axe-core",
+        },
+        {
+          criterion: "1.1.1",
+          status: "Pass",
+          type: "Automated",
+          engine: "ibm-equal-access",
+        },
+      ],
+    });
+
+    expect(result.accessibilityScore).toBe(0);
+    expect(result.scoreBreakdown.guidelines[0].passedSuccessCriteria).toBe(0);
+  });
 });

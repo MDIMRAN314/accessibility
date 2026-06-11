@@ -1,4 +1,5 @@
 const { getSuccessCriteriaForVersion } = require("../config/wcagStandards");
+const EnginePriority = require("./EnginePriority");
 
 const DEFAULT_GUIDELINE_WEIGHTS = {
   "1.1": 10,
@@ -123,26 +124,7 @@ class ScoreCalculator {
   }
 
   static deriveCriterionState(criterionIssues) {
-    const relevant = criterionIssues.filter(
-      (issue) => issue.type !== "Best Practices",
-    );
-
-    if (relevant.some((issue) => issue.status === "Fail")) {
-      return "Fail";
-    }
-
-    if (
-      relevant.length > 0 &&
-      relevant.every((issue) => issue.status === "Pass")
-    ) {
-      return "Pass";
-    }
-
-    if (relevant.length > 0) {
-      return "Manual Review";
-    }
-
-    return "NA";
+    return EnginePriority.deriveCriterionState(criterionIssues);
   }
 }
 

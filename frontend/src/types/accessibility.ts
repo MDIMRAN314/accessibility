@@ -81,7 +81,8 @@ export type ReportStatus =
   | "Approved Exception"
   | "Not an issue"
   | "Best Practice"
-  | "Error";
+  | "Error"
+  | "Suppressed";
 
 export type ReportViewMode = "summary" | "guidelines" | "elements";
 
@@ -155,6 +156,7 @@ export interface AccessibilityElement {
   pageTitle?: string;
   locators?: ElementLocator[];
   status?: ReportStatus;
+  rawStatus?: ReportStatus;
 }
 
 export interface AccessibilityIssue {
@@ -174,6 +176,20 @@ export interface AccessibilityIssue {
   howToTest?: string;
   automationJustification?: string;
   helpUrl?: string;
+  engine?: "axe-core" | "ibm-equal-access" | "htmlcs" | string;
+  enginePriority?: number;
+  engineResults?: Array<{
+    engine: string;
+    status: ReportStatus | string;
+    count: number;
+  }>;
+  mergedIssueIds?: string[];
+  redundantEntryCount?: number;
+  rawStatus?: ReportStatus;
+  finalStatus?: ReportStatus;
+  decisionEngine?: string | null;
+  suppressedByPriority?: boolean;
+  suppressedByEngine?: string;
   createdAt?: string;
 }
 

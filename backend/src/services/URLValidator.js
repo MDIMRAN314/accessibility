@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer");
+const { chromium } = require("playwright");
 const validator = require("validator");
 
 const DEFAULT_BROWSER_NAVIGATION_TIMEOUT = 120000;
@@ -47,11 +47,14 @@ class URLValidator {
   static async validateURLAccessibility(url) {
     let browser;
     try {
-      browser = await puppeteer.launch({
+      browser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox"],
       });
-      const page = await browser.newPage();
+      const context = await browser.newContext({
+        ignoreHTTPSErrors: true,
+      });
+      const page = await context.newPage();
       const navigationTimeout = getBrowserNavigationTimeout();
 
       page.setDefaultTimeout(navigationTimeout);
@@ -62,14 +65,11 @@ class URLValidator {
         timeout: navigationTimeout,
       });
 
-      if (typeof page.waitForNetworkIdle === "function") {
-        await page
-          .waitForNetworkIdle({
-            idleTime: 750,
-            timeout: getBrowserNetworkIdleTimeout(),
-          })
-          .catch(() => {});
-      }
+      await page
+        .waitForLoadState("networkidle", {
+          timeout: getBrowserNetworkIdleTimeout(),
+        })
+        .catch(() => {});
 
       if (!response.ok()) {
         throw new Error(`HTTP Error: ${response.status()}`);

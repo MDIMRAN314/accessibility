@@ -1,10 +1,19 @@
-const puppeteer = require("puppeteer");
+const fs = require("fs");
+const { chromium } = require("playwright");
 const axe = require("axe-core");
+const HTMLCS_SCRIPT_PATH = require.resolve(
+  "@pa11y/html_codesniffer/build/HTMLCS.js",
+);
+const IBM_ACE_SCRIPT_PATH = require.resolve("accessibility-checker-engine/ace.js");
+const IBM_RULES_CSV_PATH = require.resolve(
+  "accessibility-checker-engine/help/rules.csv",
+);
 const {
   getCriterionByAxeRule,
   getSuccessCriteriaForVersion,
   wcagStandards,
 } = require("../config/wcagStandards");
+const EnginePriority = require("./EnginePriority");
 
 const DEFAULT_SCAN_OPTIONS = {
   scanScope: "Page",
@@ -55,6 +64,19 @@ const HIGHLIGHT_ATTRIBUTE = "data-accessibility-poc-highlight";
 const HIGHLIGHT_STYLE_ID = "accessibility-poc-highlight-style";
 const DEFAULT_BROWSER_NAVIGATION_TIMEOUT = 180000;
 const DEFAULT_BROWSER_NETWORK_IDLE_TIMEOUT = 10000;
+const HTMLCS_SUPPORTED_WCAG_VERSIONS = new Set(["2.0", "2.1"]);
+const IBM_SUPPORTED_WCAG_VERSIONS = new Set(["2.0", "2.1", "2.2"]);
+const IBM_POLICY_BY_WCAG_VERSION = {
+  "2.0": "WCAG_2_0",
+  "2.1": "WCAG_2_1",
+  "2.2": "WCAG_2_2",
+};
+const CONFORMANCE_LEVEL_RANK = {
+  A: 1,
+  AA: 2,
+  AAA: 3,
+};
+let ibmRuleCriteriaCache = null;
 
 class AccessibilityTester {
   static async runAxeTests(
@@ -99,7 +121,7 @@ class AccessibilityTester {
     }
 
     try {
-      browser = await puppeteer.launch({
+      browser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
@@ -140,6 +162,7 @@ class AccessibilityTester {
             url: candidate.url,
             depth: candidate.depth,
             runOnlyTags,
+            conformanceLevel,
             wcagVersion,
             checkPoints,
             selectedGuidelines,
@@ -274,24 +297,28 @@ class AccessibilityTester {
     url,
     depth,
     runOnlyTags,
+    conformanceLevel,
     wcagVersion,
     checkPoints,
     selectedGuidelines,
     options,
     pageIndex,
   }) {
-    const page = await browser.newPage();
+    const context = await browser.newContext({
+      viewport: {
+        width: 1440,
+        height: 1000,
+      },
+      deviceScaleFactor: 1,
+      bypassCSP: true,
+      ignoreHTTPSErrors: true,
+    });
+    const page = await context.newPage();
     const navigationTimeout = this.getBrowserNavigationTimeout();
 
     try {
       page.setDefaultTimeout(navigationTimeout);
       page.setDefaultNavigationTimeout(navigationTimeout);
-      await page.setViewport({
-        width: 1440,
-        height: 1000,
-        deviceScaleFactor: 1,
-      });
-      await page.setBypassCSP(true);
 
       const response = await page.goto(url, {
         waitUntil: "domcontentloaded",
@@ -306,7 +333,7 @@ class AccessibilityTester {
 
       await this.waitForNetworkToSettle(page);
       await this.preparePageForScan(page, options);
-      await page.evaluate(axe.source);
+      await page.addScriptTag({ content: axe.source });
 
       const axeResults = await page.evaluate((tags) => {
         return window.axe.run(document, {
@@ -314,24 +341,51 @@ class AccessibilityTester {
           runOnly: { type: "tag", values: tags },
         });
       }, runOnlyTags);
+      const ibmResults = this.shouldRunIbm(wcagVersion, conformanceLevel)
+        ? await this.runIbmTests(page, wcagVersion)
+        : [];
+      const htmlcsResults = this.shouldRunHtmlcs(wcagVersion)
+        ? await this.runHtmlcsTests(page, conformanceLevel)
+        : [];
 
       const title = await page.title();
       const links = await this.discoverPageLinks(page, url, options);
-      const issues = this.processAxeResults(
-        axeResults,
-        wcagVersion,
-        checkPoints,
-        selectedGuidelines,
-        {
-          pageUrl: url,
-          pageTitle: title,
-          pageDepth: depth,
-          pageIndex,
-        },
-      );
+      const pageContext = {
+        pageUrl: url,
+        pageTitle: title,
+        pageDepth: depth,
+        pageIndex,
+      };
+      const rawIssues = [
+        ...this.processAxeResults(
+          axeResults,
+          wcagVersion,
+          conformanceLevel,
+          checkPoints,
+          selectedGuidelines,
+          pageContext,
+        ),
+        ...this.processIbmResults(
+          ibmResults,
+          wcagVersion,
+          conformanceLevel,
+          checkPoints,
+          selectedGuidelines,
+          pageContext,
+        ),
+        ...this.processHtmlcsResults(
+          htmlcsResults,
+          wcagVersion,
+          conformanceLevel,
+          checkPoints,
+          selectedGuidelines,
+          pageContext,
+        ),
+      ];
+      const issues = EnginePriority.applyToIssues(rawIssues);
       await this.captureHighlightedElementScreenshots(page, issues);
 
-      await page.close();
+      await context.close();
 
       return {
         issues,
@@ -355,7 +409,7 @@ class AccessibilityTester {
         },
       };
     } catch (error) {
-      await page.close();
+      await context.close();
       throw error;
     }
   }
@@ -373,14 +427,8 @@ class AccessibilityTester {
   }
 
   static async waitForNetworkToSettle(page) {
-    if (typeof page.waitForNetworkIdle !== "function") {
-      await page.waitForTimeout(1000).catch(() => {});
-      return;
-    }
-
     await page
-      .waitForNetworkIdle({
-        idleTime: 750,
+      .waitForLoadState("networkidle", {
         timeout: this.getBrowserNetworkIdleTimeout(),
       })
       .catch(() => {});
@@ -426,14 +474,7 @@ class AccessibilityTester {
       });
     });
 
-    if (typeof page.waitForNetworkIdle === "function") {
-      await page
-        .waitForNetworkIdle({ idleTime: 750, timeout: 5000 })
-        .catch(() => {});
-      return;
-    }
-
-    await page.waitForTimeout(750).catch(() => {});
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
   }
 
   static async discoverPageLinks(page, baseUrl, options) {
@@ -666,8 +707,7 @@ class AccessibilityTester {
     }
 
     if (wcagVersion === "2.2") {
-      tags.push("wcag22aa");
-      if (level === "aaa") tags.push("wcag22aaa");
+      if (["aa", "aaa"].includes(level)) tags.push("wcag22aa");
     }
 
     if (includeBestPractices) {
@@ -675,6 +715,161 @@ class AccessibilityTester {
     }
 
     return tags;
+  }
+
+  static shouldRunHtmlcs(wcagVersion) {
+    return HTMLCS_SUPPORTED_WCAG_VERSIONS.has(String(wcagVersion || ""));
+  }
+
+  static shouldRunIbm(wcagVersion, conformanceLevel = "AA") {
+    const level = String(conformanceLevel || "AA").toUpperCase();
+
+    return (
+      IBM_SUPPORTED_WCAG_VERSIONS.has(String(wcagVersion || "")) &&
+      ["A", "AA"].includes(level)
+    );
+  }
+
+  static getIbmPolicy(wcagVersion) {
+    return IBM_POLICY_BY_WCAG_VERSION[String(wcagVersion || "")] || null;
+  }
+
+  static getHtmlcsStandard(conformanceLevel) {
+    const level = String(conformanceLevel || "AA").toUpperCase();
+    return ["A", "AA", "AAA"].includes(level) ? `WCAG2${level}` : "WCAG2AA";
+  }
+
+  static async runIbmTests(page, wcagVersion) {
+    const policy = this.getIbmPolicy(wcagVersion);
+
+    if (!policy) {
+      return [];
+    }
+
+    await page.addScriptTag({ path: IBM_ACE_SCRIPT_PATH });
+
+    return page.evaluate(async (policyId) => {
+      const aceNamespace =
+        window.ace || (typeof ace !== "undefined" ? ace : null);
+
+      if (!aceNamespace || typeof aceNamespace.Checker !== "function") {
+        throw new Error("IBM Equal Access engine did not initialize");
+      }
+
+      const checker = new aceNamespace.Checker();
+      const report = await checker.check(document, [policyId]);
+      const normalizedReport = report?.report || report || {};
+
+      return {
+        summary: normalizedReport.summary || {},
+        results: normalizedReport.results || [],
+      };
+    }, policy);
+  }
+
+  static async runHtmlcsTests(page, conformanceLevel) {
+    await page.addScriptTag({ path: HTMLCS_SCRIPT_PATH });
+
+    return page.evaluate((standard) => {
+      const escapeCssIdentifier = (value) =>
+        String(value).replace(/([^\w-])/g, "\\$1");
+
+      const getCssPath = (element) => {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+          return "";
+        }
+
+        const segments = [];
+        let current = element;
+
+        while (current && current.nodeType === Node.ELEMENT_NODE) {
+          let selector = current.nodeName.toLowerCase();
+
+          if (current.id) {
+            selector += `#${escapeCssIdentifier(current.id)}`;
+            segments.unshift(selector);
+            break;
+          }
+
+          if (current.classList.length > 0) {
+            selector += `.${Array.from(current.classList)
+              .slice(0, 2)
+              .map(escapeCssIdentifier)
+              .join(".")}`;
+          }
+
+          const parent = current.parentElement;
+
+          if (parent) {
+            const siblings = Array.from(parent.children).filter(
+              (sibling) => sibling.nodeName === current.nodeName,
+            );
+
+            if (siblings.length > 1) {
+              selector += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+            }
+          }
+
+          segments.unshift(selector);
+          current = parent;
+
+          if (segments.length >= 8) {
+            break;
+          }
+        }
+
+        return segments.join(" > ");
+      };
+
+      const serializeElement = (element) => {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+          return null;
+        }
+
+        return {
+          selector: getCssPath(element),
+          html: element.outerHTML ? element.outerHTML.slice(0, 1000) : "",
+          text: element.textContent ? element.textContent.trim().slice(0, 300) : "",
+        };
+      };
+
+      return new Promise((resolve, reject) => {
+        const htmlcs = window.HTMLCS;
+
+        try {
+          if (!htmlcs || typeof htmlcs.process !== "function") {
+            reject(new Error("HTML_CodeSniffer did not initialize"));
+            return;
+          }
+
+          htmlcs.process(
+            standard,
+            document,
+            () => {
+              const typeNames = {
+                [htmlcs.ERROR]: "error",
+                [htmlcs.WARNING]: "warning",
+                [htmlcs.NOTICE]: "notice",
+              };
+
+              resolve(
+                htmlcs.getMessages().map((message, index) => ({
+                  index,
+                  type: message.type,
+                  typeName: typeNames[message.type] || String(message.type),
+                  code: message.code,
+                  message: message.msg,
+                  element: serializeElement(message.element),
+                })),
+              );
+            },
+            () => undefined,
+          );
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }, this.getHtmlcsStandard(conformanceLevel));
   }
 
   static shouldScanBestPractices(checkPoints = ["All"]) {
@@ -688,6 +883,7 @@ class AccessibilityTester {
   static processAxeResults(
     axeResults,
     wcagVersion,
+    conformanceLevel,
     checkPoints,
     selectedGuidelines,
     pageContext = {},
@@ -712,6 +908,10 @@ class AccessibilityTester {
       const criterion = mappedCriterion?.[0] || result.id;
       const criterionConfig = mappedCriterion?.[1];
       const guideline = this.getGuidelineFromCriterion(criterion);
+
+      if (!this.isCriterionInConformance(criterionConfig, conformanceLevel)) {
+        return;
+      }
 
       if (
         !selectedGuidelineSet.has("All") &&
@@ -764,6 +964,12 @@ class AccessibilityTester {
         howToTest: criterionConfig?.howToTest,
         automationJustification: criterionConfig?.automationJustification,
         helpUrl: result.helpUrl,
+        engine: "axe-core",
+        enginePriority: EnginePriority.getEnginePriority("axe-core"),
+        rawStatus: status,
+        finalStatus: status,
+        decisionEngine: "axe-core",
+        suppressedByPriority: false,
       });
     };
 
@@ -778,6 +984,187 @@ class AccessibilityTester {
     );
 
     return issues;
+  }
+
+  static processIbmResults(
+    ibmResults,
+    wcagVersion,
+    conformanceLevel,
+    checkPoints,
+    selectedGuidelines,
+    pageContext = {},
+  ) {
+    const selectedGuidelineSet = new Set(selectedGuidelines || ["All"]);
+    const results = Array.isArray(ibmResults)
+      ? ibmResults
+      : ibmResults?.results || [];
+    const issues = [];
+
+    results.forEach((result, index) => {
+      const mappedCriteria = this.getCriteriaFromIbmRule(
+        result.ruleId,
+        result.reasonId,
+        wcagVersion,
+      ).filter(([, criterionConfig]) =>
+        this.isCriterionInConformance(criterionConfig, conformanceLevel),
+      );
+
+      mappedCriteria.forEach(([criterion, criterionConfig]) => {
+        const guideline = this.getGuidelineFromCriterion(criterion);
+
+        if (
+          !selectedGuidelineSet.has("All") &&
+          !selectedGuidelineSet.has(guideline)
+        ) {
+          return;
+        }
+
+        const pseudoResult = {
+          id: result.ruleId,
+          help: result.message,
+          description: result.message,
+          tags: [`wcag${criterion.replace(/\./g, "")}`],
+        };
+
+        if (!this.shouldIncludeResult(pseudoResult, checkPoints)) {
+          return;
+        }
+
+        const config = wcagStandards[wcagVersion]?.guidelines?.[guideline];
+        const status = this.mapIbmStatus(result);
+        const severity = this.mapIbmSeverity(result, status);
+        const issueId = [
+          "IBM",
+          pageContext.pageIndex || 1,
+          result.ruleId || "rule",
+          result.reasonId || "reason",
+          criterion,
+          index,
+        ]
+          .join("-")
+          .replace(/\s+/g, "-")
+          .replace(/[^a-zA-Z0-9_.-]/g, "-");
+
+        issues.push({
+          issueId,
+          criterion,
+          principle: config?.principle,
+          guideline,
+          description: result.message || result.ruleId || "IBM Equal Access result",
+          severity,
+          status,
+          type: criterionConfig?.type || config?.type || "Automated",
+          pageUrl: pageContext.pageUrl,
+          pageTitle: pageContext.pageTitle,
+          pageDepth: pageContext.pageDepth,
+          elements: [this.mapIbmElement(result, index, pageContext, status)],
+          suggestedFix: result.message || "Review the affected element.",
+          howToTest: criterionConfig?.howToTest,
+          automationJustification: criterionConfig?.automationJustification,
+          helpUrl: this.getIbmHelpUrl(result.ruleId),
+          engine: "ibm-equal-access",
+          enginePriority: EnginePriority.getEnginePriority("ibm-equal-access"),
+          rawStatus: status,
+          finalStatus: status,
+          decisionEngine: "ibm-equal-access",
+          suppressedByPriority: false,
+        });
+      });
+    });
+
+    return issues;
+  }
+
+  static processHtmlcsResults(
+    htmlcsResults,
+    wcagVersion,
+    conformanceLevel,
+    checkPoints,
+    selectedGuidelines,
+    pageContext = {},
+  ) {
+    const selectedGuidelineSet = new Set(selectedGuidelines || ["All"]);
+    const severityMap = {
+      error: "Serious",
+      warning: "Moderate",
+      notice: "Minor",
+    };
+    const statusMap = {
+      error: "Fail",
+      warning: "Warning",
+      notice: "Manual Review",
+    };
+
+    return (htmlcsResults || [])
+      .map((result, index) => {
+        const mappedCriterion = this.getCriterionFromHtmlcsCode(
+          result.code,
+          wcagVersion,
+        );
+
+        if (!mappedCriterion) {
+          return null;
+        }
+
+        const criterion = mappedCriterion[0];
+        const criterionConfig = mappedCriterion?.[1];
+        const guideline = this.getGuidelineFromCriterion(criterion);
+        const config = wcagStandards[wcagVersion]?.guidelines?.[guideline];
+
+        if (!this.isCriterionInConformance(criterionConfig, conformanceLevel)) {
+          return null;
+        }
+
+        const pseudoResult = {
+          id: result.code,
+          help: result.message,
+          description: result.message,
+          tags: criterion ? [`wcag${criterion.replace(/\./g, "")}`] : [],
+        };
+
+        if (!this.shouldIncludeResult(pseudoResult, checkPoints)) {
+          return null;
+        }
+
+        if (
+          !selectedGuidelineSet.has("All") &&
+          !selectedGuidelineSet.has(guideline)
+        ) {
+          return null;
+        }
+
+        const status = statusMap[result.typeName] || "Warning";
+
+        return {
+          issueId: ["HTMLCS", pageContext.pageIndex || 1, result.code || index, index]
+            .join("-")
+            .replace(/\s+/g, "-"),
+          criterion,
+          principle: config?.principle,
+          guideline,
+          description: result.message || result.code,
+          severity: severityMap[result.typeName] || "Moderate",
+          status,
+          type: criterionConfig?.type || config?.type || "Automated",
+          pageUrl: pageContext.pageUrl,
+          pageTitle: pageContext.pageTitle,
+          pageDepth: pageContext.pageDepth,
+          elements: result.element
+            ? [this.mapHtmlcsElement(result, pageContext, status)]
+            : [],
+          suggestedFix: result.message,
+          howToTest: criterionConfig?.howToTest,
+          automationJustification: criterionConfig?.automationJustification,
+          helpUrl: undefined,
+          engine: "htmlcs",
+          enginePriority: EnginePriority.getEnginePriority("htmlcs"),
+          rawStatus: status,
+          finalStatus: status,
+          decisionEngine: "htmlcs",
+          suppressedByPriority: false,
+        };
+      })
+      .filter(Boolean);
   }
 
   static mapNodeToElement(
@@ -816,6 +1203,279 @@ class AccessibilityTester {
     };
   }
 
+  static mapHtmlcsElement(result, pageContext = {}, status = "Manual Review") {
+    const selector = result.element?.selector || "";
+    const html = result.element?.html || "";
+
+    return {
+      elementId: `HTMLCS-ELEMENT-${pageContext.pageIndex || 1}-${result.index || 0}`,
+      elementName:
+        selector ||
+        result.element?.text ||
+        html.substring(0, 100) ||
+        "Document",
+      html,
+      selector,
+      xpath: "",
+      screenshot: null,
+      status,
+      pageUrl: pageContext.pageUrl,
+      pageTitle: pageContext.pageTitle,
+      locators: [
+        {
+          type: "CSS Selector",
+          value: selector || "N/A",
+        },
+        {
+          type: "Page URL",
+          value: pageContext.pageUrl || "N/A",
+        },
+      ],
+    };
+  }
+
+  static mapIbmElement(
+    result,
+    index,
+    pageContext = {},
+    status = "Manual Review",
+  ) {
+    const selector = result.path?.css || "";
+    const xpath = result.path?.dom || "";
+    const html = result.snippet || "";
+
+    return {
+      elementId: `IBM-ELEMENT-${pageContext.pageIndex || 1}-${index}`,
+      elementName:
+        selector ||
+        xpath ||
+        html.substring(0, 100) ||
+        result.ruleId ||
+        "Document",
+      html,
+      selector,
+      xpath,
+      screenshot: null,
+      status,
+      pageUrl: pageContext.pageUrl,
+      pageTitle: pageContext.pageTitle,
+      locators: [
+        {
+          type: "CSS Selector",
+          value: selector || "N/A",
+        },
+        {
+          type: "XPath",
+          value: xpath || "N/A",
+        },
+        {
+          type: "Page URL",
+          value: pageContext.pageUrl || "N/A",
+        },
+      ],
+    };
+  }
+
+  static mapIbmStatus(result = {}) {
+    const outcome = Array.isArray(result.value)
+      ? String(result.value[1] || "").toUpperCase()
+      : "";
+
+    if (outcome === "PASS") {
+      return "Pass";
+    }
+
+    if (outcome === "FAIL") {
+      return "Fail";
+    }
+
+    if (["POTENTIAL", "MANUAL"].includes(outcome)) {
+      return "Manual Review";
+    }
+
+    const level = String(result.level || "").toLowerCase();
+
+    if (level === "pass") {
+      return "Pass";
+    }
+
+    if (level === "violation") {
+      return "Fail";
+    }
+
+    if (level.includes("potential") || level.includes("manual")) {
+      return "Manual Review";
+    }
+
+    if (level.includes("recommendation")) {
+      return "Warning";
+    }
+
+    return "Manual Review";
+  }
+
+  static mapIbmSeverity(result = {}, status = "Manual Review") {
+    if (status === "Pass") {
+      return "None";
+    }
+
+    if (status === "Fail") {
+      const toolkitLevel = Number(
+        String(result.value?.[0] || result.toolkitLevel || "").match(/\d+/)?.[0],
+      );
+
+      if (toolkitLevel === 1) return "Serious";
+      if (toolkitLevel === 3) return "Minor";
+      return "Moderate";
+    }
+
+    return status === "Warning" ? "Minor" : "Moderate";
+  }
+
+  static getIbmHelpUrl(ruleId) {
+    return ruleId
+      ? `https://www.ibm.com/able/requirements/checker-rule-sets/#${ruleId}`
+      : undefined;
+  }
+
+  static getCriteriaFromIbmRule(ruleId, reasonId, wcagVersion = "2.2") {
+    if (!ruleId) {
+      return [];
+    }
+
+    const criteria = getSuccessCriteriaForVersion(wcagVersion);
+    const criterionIds = this.getIbmRuleCriterionIds(ruleId, reasonId).filter(
+      (criterionId) => criteria[criterionId],
+    );
+
+    return criterionIds.map((criterionId) => [criterionId, criteria[criterionId]]);
+  }
+
+  static getIbmRuleCriterionIds(ruleId, reasonId) {
+    const map = this.getIbmRuleCriteriaMap();
+    const byReason =
+      reasonId && map.byReason.get(this.getIbmRuleReasonKey(ruleId, reasonId));
+
+    if (byReason?.length) {
+      return byReason;
+    }
+
+    return map.byRule.get(ruleId) || [];
+  }
+
+  static getIbmRuleCriteriaMap() {
+    if (ibmRuleCriteriaCache) {
+      return ibmRuleCriteriaCache;
+    }
+
+    const rows = this.parseCsvRows(fs.readFileSync(IBM_RULES_CSV_PATH, "utf8"));
+    const header = (rows.shift() || []).map((cell) => cell.trim());
+    const ruleIdIndex = header.indexOf("Rule ID");
+    const reasonCodeIndex = header.indexOf("Reason Code");
+    const requirementsIndex = header.indexOf("WCAG Requirements");
+    const byRule = new Map();
+    const byReason = new Map();
+
+    rows.forEach((row) => {
+      const ruleId = row[ruleIdIndex];
+      const reasonCode = row[reasonCodeIndex];
+      const criteria = this.extractWcagCriteria(row[requirementsIndex]);
+
+      if (!ruleId || criteria.length === 0) {
+        return;
+      }
+
+      this.addIbmCriterionMapping(byRule, ruleId, criteria);
+
+      if (reasonCode) {
+        this.addIbmCriterionMapping(
+          byReason,
+          this.getIbmRuleReasonKey(ruleId, reasonCode),
+          criteria,
+        );
+      }
+    });
+
+    ibmRuleCriteriaCache = { byRule, byReason };
+    return ibmRuleCriteriaCache;
+  }
+
+  static addIbmCriterionMapping(map, key, criteria) {
+    const current = map.get(key) || [];
+    map.set(key, Array.from(new Set([...current, ...criteria])));
+  }
+
+  static getIbmRuleReasonKey(ruleId, reasonId) {
+    return `${ruleId}::${reasonId}`;
+  }
+
+  static extractWcagCriteria(value = "") {
+    return Array.from(
+      new Set(String(value).match(/\b[1-4]\.[0-9]\.\d+\b/g) || []),
+    );
+  }
+
+  static parseCsvRows(content = "") {
+    const rows = [];
+    let row = [];
+    let field = "";
+    let quoted = false;
+
+    for (let index = 0; index < content.length; index += 1) {
+      const char = content[index];
+
+      if (quoted) {
+        if (char === '"' && content[index + 1] === '"') {
+          field += '"';
+          index += 1;
+        } else if (char === '"') {
+          quoted = false;
+        } else {
+          field += char;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        quoted = true;
+      } else if (char === ",") {
+        row.push(field);
+        field = "";
+      } else if (char === "\n") {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = "";
+      } else if (char !== "\r") {
+        field += char;
+      }
+    }
+
+    if (field || row.length > 0) {
+      row.push(field);
+      rows.push(row);
+    }
+
+    return rows.filter((candidate) =>
+      candidate.some((cell) => String(cell).length > 0),
+    );
+  }
+
+  static isCriterionInConformance(criterionConfig, conformanceLevel = "AA") {
+    if (!criterionConfig?.level) {
+      return true;
+    }
+
+    const requestedLevel =
+      CONFORMANCE_LEVEL_RANK[String(conformanceLevel || "AA").toUpperCase()] ||
+      CONFORMANCE_LEVEL_RANK.AA;
+    const criterionLevel =
+      CONFORMANCE_LEVEL_RANK[String(criterionConfig.level).toUpperCase()] ||
+      requestedLevel;
+
+    return criterionLevel <= requestedLevel;
+  }
+
   static getCriterionFromTags(tags = [], wcagVersion = "2.2") {
     const tag = tags.find((value) => /^wcag\d{3,4}$/.test(value));
     if (!tag) {
@@ -824,6 +1484,19 @@ class AccessibilityTester {
 
     const digits = tag.replace("wcag", "");
     const criterionId = `${digits[0]}.${digits[1]}.${digits.slice(2)}`;
+    const criteria = getSuccessCriteriaForVersion(wcagVersion);
+
+    return criteria[criterionId] ? [criterionId, criteria[criterionId]] : null;
+  }
+
+  static getCriterionFromHtmlcsCode(code = "", wcagVersion = "2.1") {
+    const match = /(?:^|\.)(\d)_(\d)_(\d+)(?:\.|_|$)/.exec(String(code));
+
+    if (!match) {
+      return null;
+    }
+
+    const criterionId = `${match[1]}.${match[2]}.${match[3]}`;
     const criteria = getSuccessCriteriaForVersion(wcagVersion);
 
     return criteria[criterionId] ? [criterionId, criteria[criterionId]] : null;
@@ -906,7 +1579,7 @@ class AccessibilityTester {
     let captured = 0;
 
     for (const issue of issues) {
-      if (["Pass", "NA"].includes(issue.status)) {
+      if (["Pass", "NA", "Suppressed"].includes(issue.status)) {
         continue;
       }
 
@@ -985,11 +1658,19 @@ class AccessibilityTester {
   static async captureElementScreenshot(url, selector) {
     let browser;
     try {
-      browser = await puppeteer.launch({
+      browser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox"],
       });
-      const page = await browser.newPage();
+      const context = await browser.newContext({
+        viewport: {
+          width: 1440,
+          height: 1000,
+        },
+        deviceScaleFactor: 1,
+        ignoreHTTPSErrors: true,
+      });
+      const page = await context.newPage();
 
       await page.goto(url, {
         waitUntil: "domcontentloaded",
@@ -1003,6 +1684,7 @@ class AccessibilityTester {
       }
 
       const screenshot = await element.screenshot();
+      await context.close();
       await browser.close();
 
       return `data:image/png;base64,${screenshot.toString("base64")}`;

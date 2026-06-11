@@ -96,6 +96,85 @@ interface GeneratedCriterion {
 
 const GENERATED_CRITERIA = wcag22Criteria as GeneratedCriterion[];
 
+const WCAG21_ADDITIONS = new Set([
+  "1.3.4",
+  "1.3.5",
+  "1.3.6",
+  "1.4.10",
+  "1.4.11",
+  "1.4.12",
+  "1.4.13",
+  "2.1.4",
+  "2.2.6",
+  "2.3.3",
+  "2.5.1",
+  "2.5.2",
+  "2.5.3",
+  "2.5.4",
+  "2.5.5",
+  "2.5.6",
+  "4.1.3",
+]);
+
+const WCAG22_ADDITIONS = new Set([
+  "2.4.11",
+  "2.4.12",
+  "2.4.13",
+  "2.5.7",
+  "2.5.8",
+  "3.2.6",
+  "3.3.7",
+  "3.3.8",
+  "3.3.9",
+]);
+
+const LEGACY_PARSING_CRITERION: GeneratedCriterion = {
+  id: "4.1.1",
+  principle: "Robust",
+  guidelineId: "4.1",
+  guidelineName: "Compatible",
+  name: "Parsing",
+  level: "A",
+  testingMethod: "Automated",
+  howToTest:
+    "Automated HTML validation and DOM inspection for complete tags, valid nesting, duplicate attributes, and unique IDs.",
+  automationJustification:
+    "Applies to WCAG 2.0 and 2.1. This success criterion is obsolete and removed in WCAG 2.2.",
+  axeRuleIds: ["duplicate-id", "duplicate-id-active", "duplicate-id-aria"],
+};
+
+const shouldIncludeCriterion = (criterionId: string, version: WcagVersion): boolean => {
+  if (version === "2.2") {
+    return true;
+  }
+
+  if (WCAG22_ADDITIONS.has(criterionId)) {
+    return false;
+  }
+
+  if (version === "2.0" && WCAG21_ADDITIONS.has(criterionId)) {
+    return false;
+  }
+
+  return true;
+};
+
+const getGeneratedCriteriaForVersion = (version: WcagVersion): GeneratedCriterion[] => {
+  const criteria: GeneratedCriterion[] = [];
+
+  GENERATED_CRITERIA.forEach((criterion) => {
+    if (version !== "2.2" && criterion.id === "4.1.2") {
+      criteria.push(LEGACY_PARSING_CRITERION);
+    }
+
+    if (shouldIncludeCriterion(criterion.id, version)) {
+      criteria.push(criterion);
+    }
+  });
+
+  return criteria;
+};
+
 export const SUCCESS_CRITERIA: SuccessCriterionConfig[] = GENERATED_CRITERIA.map(
   (criterion) => ({
     id: criterion.id,
@@ -111,7 +190,7 @@ export const SUCCESS_CRITERIA: SuccessCriterionConfig[] = GENERATED_CRITERIA.map
 
 export const GUIDELINES: GuidelineConfig[] = Array.from(
   new Map(
-    GENERATED_CRITERIA.map((criterion) => [
+    getGeneratedCriteriaForVersion("2.2").map((criterion) => [
       criterion.guidelineId,
       {
         id: criterion.guidelineId,
@@ -125,8 +204,8 @@ export const GUIDELINES: GuidelineConfig[] = Array.from(
 );
 
 export const RULE_COUNT_BY_VERSION: Record<WcagVersion, number> = {
-  "2.0": 30,
-  "2.1": 56,
+  "2.0": 61,
+  "2.1": 78,
   "2.2": 86,
 };
 
@@ -156,7 +235,17 @@ export const REPORT_TABS: Array<{ key: import("@/types/accessibility").ReportIss
 
 export const getCriteriaForVersion = (
   version: WcagVersion,
-): SuccessCriterionConfig[] => SUCCESS_CRITERIA.slice(0, RULE_COUNT_BY_VERSION[version]);
+): SuccessCriterionConfig[] =>
+  getGeneratedCriteriaForVersion(version).map((criterion) => ({
+    id: criterion.id,
+    name: criterion.name,
+    level: criterion.level,
+    guidelineId: criterion.guidelineId,
+    type: criterion.testingMethod,
+    howToTest: criterion.howToTest,
+    automationJustification: criterion.automationJustification,
+    axeRuleIds: criterion.axeRuleIds,
+  }));
 
 export const getGuidelinesForVersion = (version: WcagVersion): GuidelineConfig[] => {
   const criteriaGuidelines = new Set(

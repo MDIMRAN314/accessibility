@@ -1,6 +1,8 @@
 const AccessibilityStore = require("../services/AccessibilityStore");
 const URLValidator = require("../services/URLValidator");
 
+const SUPPORTED_WCAG_VERSIONS = ["2.0", "2.1", "2.2"];
+
 class RequestController {
   static async createRequest(req, res) {
     try {
@@ -32,13 +34,21 @@ class RequestController {
         return res.status(400).json({ error: "Enter valid URL" });
       }
 
+      const normalizedWcagVersion = String(wcagVersion || "2.2");
+
+      if (!SUPPORTED_WCAG_VERSIONS.includes(normalizedWcagVersion)) {
+        return res.status(400).json({
+          error: `Unsupported WCAG version: ${normalizedWcagVersion}. Supported versions: ${SUPPORTED_WCAG_VERSIONS.join(", ")}`,
+        });
+      }
+
       const request = await AccessibilityStore.createRequest({
         url,
         requestName: createRequestName(requestName, url),
         requestType,
         taskType,
         complianceType,
-        wcagVersion,
+        wcagVersion: normalizedWcagVersion,
         countryRegulation:
           complianceType === "Country Regulations" ? countryRegulation : undefined,
         conformanceLevel,

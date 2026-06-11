@@ -233,12 +233,14 @@ export const isStatusEditable = (
 ): boolean => getAllowedStatuses(status, target).length > 1;
 
 const getAggregateStatuses = (issues: AccessibilityIssue[]): ReportStatus[] =>
-  issues.flatMap((issue) => [
-    issue.status,
-    ...issue.elements
-      .map((element) => element.status)
-      .filter((status): status is ReportStatus => Boolean(status)),
-  ]);
+  issues
+    .flatMap((issue) => [
+      issue.status,
+      ...issue.elements
+        .map((element) => element.status)
+        .filter((status): status is ReportStatus => Boolean(status)),
+    ])
+    .filter((status) => status !== "Suppressed");
 
 export const getRequestName = (report: AccessibilityReport): string => {
   if (report.requestName?.trim()) {

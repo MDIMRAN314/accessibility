@@ -162,7 +162,13 @@ class ReportController {
   }
 
   static deriveStatus(issues) {
-    const statuses = ReportController.getAggregateStatuses(issues);
+    const criterionGroups = ReportController.groupIssuesByCriterion(issues);
+    const statuses =
+      criterionGroups.length > 0
+        ? criterionGroups.map((criterionIssues) =>
+            ScoreCalculator.deriveCriterionState(criterionIssues),
+          )
+        : ReportController.getAggregateStatuses(issues);
 
     if (statuses.length === 0) {
       return "NA";
@@ -197,13 +203,33 @@ class ReportController {
     return "Warning";
   }
 
+  static groupIssuesByCriterion(issues) {
+    const groups = new Map();
+
+    (issues || []).forEach((issue) => {
+      if (!issue.criterion || issue.type === "Best Practices") {
+        return;
+      }
+
+      if (!groups.has(issue.criterion)) {
+        groups.set(issue.criterion, []);
+      }
+
+      groups.get(issue.criterion).push(issue);
+    });
+
+    return Array.from(groups.values());
+  }
+
   static getAggregateStatuses(issues) {
-    return issues.flatMap((issue) => [
-      issue.status,
-      ...(issue.elements || [])
-        .map((element) => element.status)
-        .filter(Boolean),
-    ]);
+    return issues
+      .flatMap((issue) => [
+        issue.status,
+        ...(issue.elements || [])
+          .map((element) => element.status)
+          .filter(Boolean),
+      ])
+      .filter((status) => status !== "Suppressed");
   }
 
   static isReportable(issue, type) {
@@ -503,7 +529,7 @@ class ReportController {
 
   static generateHTMLReport(report) {
     const reportableIssues = (report.issues || []).filter(
-      (issue) => !["Pass", "NA"].includes(issue.status),
+      (issue) => !["Pass", "NA", "Suppressed"].includes(issue.status),
     );
     const elementGroups = ReportController.groupElements(reportableIssues);
     const standardLabel = ReportController.getStandardLabel(report);

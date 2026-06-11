@@ -6,7 +6,7 @@
 
 - Full-stack accessibility testing application
 - Frontend: React 18 + Vite + React Router
-- Backend: Node.js + Express + MongoDB + Puppeteer + Axe-Core
+- Backend: Node.js + Express + MongoDB + Playwright + Axe-Core + IBM Equal Access + HTMLCS
 - WCAG 2.0, 2.1, 2.2 support with A, AA, AAA levels
 
 ## Completed Setup
@@ -16,7 +16,7 @@
 - Frontend: React components, pages, styles, services
 - API endpoints configured
 - WCAG standards configuration
-- Accessibility testing engine (Puppeteer + Axe)
+- Accessibility testing engine (Playwright + Axe + IBM Equal Access + HTMLCS)
 - Report generation (Summary, Guideline, Element views)
 - URL validation service
 - CSS styling for all components
@@ -47,9 +47,18 @@
 
 ### Issue Management
 
-- Status: Pass, Fail, Warning, NA, Manual Review, Approved Exception, Not an issue, Best Practice
+- Status: Pass, Fail, Warning, NA, Manual Review, Approved Exception, Not an issue, Best Practice. `Suppressed` remains supported for older saved reports.
 - Severity: Critical, Serious, Moderate, Minor
 - Type: Automated, Semi-Automated, Manual, Best Practices
+
+### Engine Compatibility and Aggregation
+
+- WCAG 2.0 A/AA: axe-core, IBM Equal Access, HTMLCS
+- WCAG 2.1 A/AA: axe-core, IBM Equal Access, HTMLCS
+- WCAG 2.2 A/AA: axe-core, IBM Equal Access
+- AAA: IBM Equal Access is skipped because the package exposes named WCAG policies only for A and AA
+- Criterion rule: if any engine reports Fail, the final criterion status is Fail
+- Redundant engine entries for the same criterion, page, status, and element are merged into one representative issue with an `engineResults` summary
 
 ## Next Steps if Continuing
 
