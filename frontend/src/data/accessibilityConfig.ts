@@ -45,18 +45,90 @@ export const CHECK_POINTS: CheckPoint[] = [
   "Best Practices",
 ];
 
-export const COUNTRY_REGULATIONS: CountryRegulation[] = [
-  "US - ADA / Section 508",
-  "UK - Equality Act / PSBAR 2018",
-  "EU - EAA / EN 301 549",
-  "Canada - ACA / AODA",
-  "Australia - DDA",
-  "India - RPwD Act / IS 17802",
-  "Japan - JIS X 8341-3",
-  "Brazil - LBI / eMAG",
-  "Singapore - DSS",
-  "South Africa - PEPUDA",
-];
+export interface CountryComplianceAlignment {
+  conformanceLevel: ConformanceLevel;
+  wcagVersion: WcagVersion;
+}
+
+export const DEFAULT_COUNTRY_REGULATION: CountryRegulation =
+  "United States - ADA / Section 508";
+
+export const COUNTRY_COMPLIANCE_ALIGNMENTS: Record<
+  CountryRegulation,
+  CountryComplianceAlignment
+> = {
+  "United States - ADA / Section 508": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "United Kingdom - Equality Act / PSBAR 2018": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "European Union - EAA / EN 301 549": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "Canada - ACA / AODA": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "Australia - DDA": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "India - RPwD Act / IS 17802": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "Japan - JIS X 8341-3": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "Brazil - LBI / eMAG": {
+    wcagVersion: "2.0",
+    conformanceLevel: "AA",
+  },
+  "Singapore - DSS": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+  "South Africa - PEPUDA": {
+    wcagVersion: "2.1",
+    conformanceLevel: "AA",
+  },
+};
+
+const COUNTRY_REGULATION_ALIASES: Record<string, CountryRegulation> = {
+  "US - ADA / Section 508": "United States - ADA / Section 508",
+  "UK - Equality Act / PSBAR 2018":
+    "United Kingdom - Equality Act / PSBAR 2018",
+  "EU - EAA / EN 301 549": "European Union - EAA / EN 301 549",
+};
+
+export const COUNTRY_REGULATIONS = Object.keys(
+  COUNTRY_COMPLIANCE_ALIGNMENTS,
+) as CountryRegulation[];
+
+export const normalizeCountryRegulation = (
+  countryRegulation?: string,
+): CountryRegulation | undefined => {
+  if (!countryRegulation) {
+    return undefined;
+  }
+
+  if (countryRegulation in COUNTRY_COMPLIANCE_ALIGNMENTS) {
+    return countryRegulation as CountryRegulation;
+  }
+
+  return COUNTRY_REGULATION_ALIASES[countryRegulation];
+};
+
+export const getCountryComplianceAlignment = (
+  countryRegulation: CountryRegulation = DEFAULT_COUNTRY_REGULATION,
+): CountryComplianceAlignment =>
+  COUNTRY_COMPLIANCE_ALIGNMENTS[countryRegulation] ||
+  COUNTRY_COMPLIANCE_ALIGNMENTS[DEFAULT_COUNTRY_REGULATION];
 
 export const PRINCIPLES: PrincipleName[] = [
   "Perceivable",

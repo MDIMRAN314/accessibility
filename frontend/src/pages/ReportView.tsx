@@ -3,11 +3,13 @@ import { useParams } from "react-router-dom";
 import ElementView from "@/components/ElementView";
 import GuidelineView from "@/components/GuidelineView";
 import ReportSummary from "@/components/ReportSummary";
+import { normalizeCountryRegulation } from "@/data/accessibilityConfig";
 import { accessibilityService, getApiErrorMessage } from "@/services/api";
 import type {
   AccessibilityElement,
   AccessibilityIssue,
   AccessibilityReport,
+  CountryRegulation,
   DetailDrawerSubject,
   ReferenceLink,
   ReportIssueTab,
@@ -951,8 +953,8 @@ function SourceDebugger({
   );
 }
 
-const COUNTRY_REFERENCE_LINKS: Record<string, ReferenceLink[]> = {
-  "US - ADA / Section 508": [
+const COUNTRY_REFERENCE_LINKS: Record<CountryRegulation, ReferenceLink[]> = {
+  "United States - ADA / Section 508": [
     {
       label: "ADA web accessibility guidance",
       source: "ADA",
@@ -964,14 +966,14 @@ const COUNTRY_REFERENCE_LINKS: Record<string, ReferenceLink[]> = {
       url: "https://www.access-board.gov/ict/",
     },
   ],
-  "UK - Equality Act / PSBAR 2018": [
+  "United Kingdom - Equality Act / PSBAR 2018": [
     {
       label: "UK public sector accessibility requirements",
       source: "UK GOV",
       url: "https://www.gov.uk/guidance/accessibility-requirements-for-public-sector-websites-and-apps",
     },
   ],
-  "EU - EAA / EN 301 549": [
+  "European Union - EAA / EN 301 549": [
     {
       label: "EU web accessibility policy",
       source: "EU",
@@ -1045,8 +1047,10 @@ function getIssueReferenceLinks(
     });
   }
 
-  if (report?.complianceType === "Country Regulations" && report.countryRegulation) {
-    links.push(...(COUNTRY_REFERENCE_LINKS[report.countryRegulation] ?? []));
+  const countryRegulation = normalizeCountryRegulation(report?.countryRegulation);
+
+  if (report?.complianceType === "Country Regulations" && countryRegulation) {
+    links.push(...(COUNTRY_REFERENCE_LINKS[countryRegulation] ?? []));
   }
 
   const seen = new Set<string>();

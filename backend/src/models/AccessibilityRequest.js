@@ -40,9 +40,9 @@ const AccessibilityRequestSchema = new mongoose.Schema({
   countryRegulation: {
     type: String,
     enum: [
-      "US - ADA / Section 508",
-      "UK - Equality Act / PSBAR 2018",
-      "EU - EAA / EN 301 549",
+      "United States - ADA / Section 508",
+      "United Kingdom - Equality Act / PSBAR 2018",
+      "European Union - EAA / EN 301 549",
       "Canada - ACA / AODA",
       "Australia - DDA",
       "India - RPwD Act / IS 17802",

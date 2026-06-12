@@ -4,10 +4,12 @@ import {
   CHECK_POINTS,
   CONFORMANCE_LEVELS,
   COUNTRY_REGULATIONS,
+  DEFAULT_COUNTRY_REGULATION,
   REQUEST_TYPES,
   TASK_TYPES,
   WCAG_VERSIONS,
   createDefaultWeightages,
+  getCountryComplianceAlignment,
   getDynamicGuidelines,
   getRenderableGuidelines,
   getSelectedGuidelineIds,
@@ -38,7 +40,7 @@ const initialForm: AccessibilityRequestPayload = {
   taskType: "Guidelines Check",
   complianceType: "WCAG Standards",
   wcagVersion: "2.2",
-  countryRegulation: "US - ADA / Section 508",
+  countryRegulation: DEFAULT_COUNTRY_REGULATION,
   conformanceLevel: "AA",
   checkPoints: CHECK_POINTS,
   guidelines: ["All"],
@@ -116,6 +118,14 @@ function RequestForm(): JSX.Element {
     [availableGuidelines, form.guidelines],
   );
 
+  const countryAlignment = useMemo(
+    () =>
+      getCountryComplianceAlignment(
+        form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION,
+      ),
+    [form.countryRegulation],
+  );
+
   const weightageTotal = getWeightageTotal(form.successCriteriaWeightage);
 
   const patchForm = (patch: Partial<AccessibilityRequestPayload>) => {
@@ -138,11 +148,66 @@ function RequestForm(): JSX.Element {
   };
 
   const handleComplianceChange = (complianceType: ComplianceType) => {
-    patchForm({ complianceType });
+    if (complianceType === "WCAG Standards") {
+      patchForm({ complianceType });
+      return;
+    }
+
+    setForm((current) => {
+      const countryRegulation =
+        current.countryRegulation ?? DEFAULT_COUNTRY_REGULATION;
+      const alignment = getCountryComplianceAlignment(countryRegulation);
+      const visibleGuidelines = getDynamicGuidelines(
+        alignment.wcagVersion,
+        current.checkPoints,
+      );
+
+      return {
+        ...current,
+        complianceType,
+        countryRegulation,
+        wcagVersion: alignment.wcagVersion,
+        conformanceLevel: alignment.conformanceLevel,
+        guidelines: ["All"],
+        successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+      };
+    });
+    setErrors((current) => ({
+      ...current,
+      complianceType: "",
+      countryRegulation: "",
+      wcagVersion: "",
+      conformanceLevel: "",
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
   };
 
   const handleCountryChange = (countryRegulation: CountryRegulation) => {
-    patchForm({ countryRegulation });
+    setForm((current) => {
+      const alignment = getCountryComplianceAlignment(countryRegulation);
+      const visibleGuidelines = getDynamicGuidelines(
+        alignment.wcagVersion,
+        current.checkPoints,
+      );
+
+      return {
+        ...current,
+        countryRegulation,
+        wcagVersion: alignment.wcagVersion,
+        conformanceLevel: alignment.conformanceLevel,
+        guidelines: ["All"],
+        successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+      };
+    });
+    setErrors((current) => ({
+      ...current,
+      countryRegulation: "",
+      wcagVersion: "",
+      conformanceLevel: "",
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
   };
 
   const handleCheckPointToggle = (checkpoint: CheckPoint) => {
@@ -288,12 +353,20 @@ function RequestForm(): JSX.Element {
       const payload: AccessibilityRequestPayload = {
         ...form,
         requestName: form.requestName?.trim() || undefined,
+        wcagVersion:
+          form.complianceType === "Country Regulations"
+            ? countryAlignment.wcagVersion
+            : form.wcagVersion,
+        conformanceLevel:
+          form.complianceType === "Country Regulations"
+            ? countryAlignment.conformanceLevel
+            : form.conformanceLevel,
         guidelines: form.guidelines.includes("All")
           ? ["All"]
           : selectedGuidelineIds,
         countryRegulation:
           form.complianceType === "Country Regulations"
-            ? form.countryRegulation
+            ? form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION
             : undefined,
       };
 
@@ -545,20 +618,30 @@ function RequestForm(): JSX.Element {
                   </Field>
                 </>
               ) : (
-                <Field label="Country Regulations" required>
-                  <select
-                    onChange={(event) =>
-                      handleCountryChange(event.target.value as CountryRegulation)
-                    }
-                    value={form.countryRegulation}
-                  >
-                    {COUNTRY_REGULATIONS.map((regulation) => (
-                      <option key={regulation} value={regulation}>
-                        {regulation}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <>
+                  <Field label="Country Regulations" required>
+                    <select
+                      onChange={(event) =>
+                        handleCountryChange(event.target.value as CountryRegulation)
+                      }
+                      value={form.countryRegulation}
+                    >
+                      {COUNTRY_REGULATIONS.map((regulation) => (
+                        <option key={regulation} value={regulation}>
+                          {regulation}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field label="WCAG Alignment" required>
+                    <input
+                      readOnly
+                      type="text"
+                      value={`WCAG ${countryAlignment.wcagVersion} ${countryAlignment.conformanceLevel}`}
+                    />
+                  </Field>
+                </>
               )}
 
               {form.complianceType === "WCAG Standards" ? (
@@ -597,59 +680,57 @@ function RequestForm(): JSX.Element {
               ) : null}
             </div>
 
-            {form.complianceType === "WCAG Standards" ? (
-              <section className={styles.weightagePanel}>
-                <header>
-                  <h3>Success Criteria Weightage</h3>
-                  <div className={weightageTotal > 0 && weightageTotal <= 100 ? styles.totalOk : styles.totalError}>
-                    Total Weightage : {weightageTotal}/100
-                    <button
-                      aria-label="Reset weightage"
-                      onClick={resetWeightages}
-                      title="Reset weightage"
-                      type="button"
-                    >
-                      R
-                    </button>
-                  </div>
-                </header>
-                {errors.successCriteriaWeightage ? (
-                  <p className={styles.fieldError}>{errors.successCriteriaWeightage}</p>
-                ) : null}
-                <div className={styles.weightageTable}>
-                  <div className={styles.tableHeader}>
-                    <span>Principle</span>
-                    <span>Guidelines</span>
-                    <span>Weightage in %</span>
-                  </div>
-                  {groupedGuidelines.map((group) =>
-                    group.guidelines.map((guideline, index) => (
-                      <div className={styles.tableRow} key={guideline.id}>
-                        <span>{index === 0 ? `${groupedGuidelines.indexOf(group) + 1}. ${group.principle}` : ""}</span>
-                        <span>
-                          {guideline.id} - {guideline.name}
-                        </span>
-                        <span>
-                          <input
-                            aria-label={`Weightage for ${guideline.name}`}
-                            max={100}
-                            min={0}
-                            onChange={(event) =>
-                              handleWeightageChange(
-                                guideline.id,
-                                Number(event.target.value),
-                              )
-                            }
-                            type="number"
-                            value={form.successCriteriaWeightage[guideline.id] ?? 0}
-                          />
-                        </span>
-                      </div>
-                    )),
-                  )}
+            <section className={styles.weightagePanel}>
+              <header>
+                <h3>Success Criteria Weightage</h3>
+                <div className={weightageTotal > 0 && weightageTotal <= 100 ? styles.totalOk : styles.totalError}>
+                  Total Weightage : {weightageTotal}/100
+                  <button
+                    aria-label="Reset weightage"
+                    onClick={resetWeightages}
+                    title="Reset weightage"
+                    type="button"
+                  >
+                    R
+                  </button>
                 </div>
-              </section>
-            ) : null}
+              </header>
+              {errors.successCriteriaWeightage ? (
+                <p className={styles.fieldError}>{errors.successCriteriaWeightage}</p>
+              ) : null}
+              <div className={styles.weightageTable}>
+                <div className={styles.tableHeader}>
+                  <span>Principle</span>
+                  <span>Guidelines</span>
+                  <span>Weightage in %</span>
+                </div>
+                {groupedGuidelines.map((group) =>
+                  group.guidelines.map((guideline, index) => (
+                    <div className={styles.tableRow} key={guideline.id}>
+                      <span>{index === 0 ? `${groupedGuidelines.indexOf(group) + 1}. ${group.principle}` : ""}</span>
+                      <span>
+                        {guideline.id} - {guideline.name}
+                      </span>
+                      <span>
+                        <input
+                          aria-label={`Weightage for ${guideline.name}`}
+                          max={100}
+                          min={0}
+                          onChange={(event) =>
+                            handleWeightageChange(
+                              guideline.id,
+                              Number(event.target.value),
+                            )
+                          }
+                          type="number"
+                          value={form.successCriteriaWeightage[guideline.id] ?? 0}
+                        />
+                      </span>
+                    </div>
+                  )),
+                )}
+              </div>
+            </section>
           </>
         ) : (
           <div className={styles.pendingMode}>
