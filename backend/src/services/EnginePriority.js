@@ -200,6 +200,24 @@ class EnginePriority {
     });
   }
 
+  static getMergedReferenceLinks(criterionIssues = []) {
+    const seen = new Set();
+    const links = [];
+
+    criterionIssues.forEach((issue) => {
+      (issue.referenceLinks || []).forEach((link) => {
+        if (!link?.url || seen.has(link.url)) {
+          return;
+        }
+
+        seen.add(link.url);
+        links.push(link);
+      });
+    });
+
+    return links;
+  }
+
   static getIssueDedupeKey(issue, decision) {
     const status = decision?.status || EnginePriority.normalizeStatus(issue.status);
     const pageUrl = issue.pageUrl || "";
@@ -286,6 +304,7 @@ class EnginePriority {
       const decision = EnginePriority.pickCriterionDecision(criterionIssues);
       const decisionStatuses = EnginePriority.getDecisionStatuses(decision);
       const engineResults = EnginePriority.getEngineResults(criterionIssues);
+      const referenceLinks = EnginePriority.getMergedReferenceLinks(criterionIssues);
       const activeIssues = criterionIssues.filter((issue) =>
         decisionStatuses.has(EnginePriority.getRawStatus(issue)),
       );
@@ -304,6 +323,7 @@ class EnginePriority {
           suppressedByPriority: false,
           suppressedByEngine: undefined,
           engineResults,
+          referenceLinks,
           mergedIssueIds: criterionIssues.map((item) => item.issueId).filter(Boolean),
           elements: (issue.elements || []).map((element) => ({
             ...element,

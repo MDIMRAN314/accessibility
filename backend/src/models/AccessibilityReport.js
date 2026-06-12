@@ -71,6 +71,7 @@ const IssueSchema = new mongoose.Schema({
   howToTest: String,
   automationJustification: String,
   helpUrl: String,
+  referenceLinks: [mongoose.Schema.Types.Mixed],
   createdAt: {
     type: Date,
     default: Date.now,

@@ -55,4 +55,52 @@ describe("AccessibilityTester WCAG engine selection", () => {
       ),
     ).toEqual([]);
   });
+
+  it("creates suggested fix text that is not a repeat of the issue description", () => {
+    const suggestion = AccessibilityTester.createSuggestedFix({
+      description:
+        "This element's role is presentation but contains child elements with semantic meaning.",
+      rawSuggestion:
+        "This element's role is presentation but contains child elements with semantic meaning.",
+      criterion: "1.3.1",
+      criterionConfig: {
+        name: "Info and Relationships",
+        howToTest:
+          "Inspect semantic structure and ensure roles do not hide meaningful child content.",
+      },
+      helpUrl: "https://dequeuniversity.com/rules/axe/4.7/presentation-role-conflict",
+    });
+
+    expect(suggestion).toContain("WCAG 1.3.1 Info and Relationships");
+    expect(suggestion).not.toBe(
+      "This element's role is presentation but contains child elements with semantic meaning.",
+    );
+  });
+
+  it("builds engine and WCAG reference links for issues", () => {
+    const links = AccessibilityTester.getReferenceLinks({
+      engine: "axe-core",
+      helpUrl: "https://dequeuniversity.com/rules/axe/4.7/presentation-role-conflict",
+      ruleId: "presentation-role-conflict",
+      criterion: "1.3.1",
+      criterionConfig: {
+        name: "Info and Relationships",
+      },
+      wcagVersion: "2.2",
+    });
+
+    expect(links).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Deque axe rule: presentation-role-conflict",
+          source: "axe-core",
+        }),
+        expect.objectContaining({
+          label: "WCAG Understanding: 1.3.1 Info and Relationships",
+          source: "WCAG",
+          url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
+        }),
+      ]),
+    );
+  });
 });

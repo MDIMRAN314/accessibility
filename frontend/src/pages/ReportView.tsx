@@ -9,6 +9,7 @@ import type {
   AccessibilityIssue,
   AccessibilityReport,
   DetailDrawerSubject,
+  ReferenceLink,
   ReportIssueTab,
   ReportStatus,
   ReportViewMode,
@@ -542,6 +543,7 @@ function DetailDrawer({
   const previousElement =
     elementIndex > 0 ? elementGroups[elementIndex - 1] : undefined;
   const nextElement = elementIndex >= 0 ? elementGroups[elementIndex + 1] : undefined;
+  const referenceLinks = getIssueReferenceLinks(primaryIssue, report);
 
   return (
     <>
@@ -603,6 +605,20 @@ function DetailDrawer({
                 <p>{primaryIssue.automationJustification}</p>
               </article>
             ) : null}
+          </section>
+        ) : null}
+
+        {referenceLinks.length > 0 ? (
+          <section className={styles.referencePanel}>
+            <h4>References</h4>
+            <div>
+              {referenceLinks.map((link) => (
+                <a href={link.url} key={`${link.source}-${link.url}`} rel="noreferrer" target="_blank">
+                  <span>{link.label}</span>
+                  {link.source ? <small>{link.source}</small> : null}
+                </a>
+              ))}
+            </div>
           </section>
         ) : null}
 
@@ -781,6 +797,7 @@ function IssueActionDrawer({
         }`,
     ),
   ].join("\n");
+  const referenceLinks = getIssueReferenceLinks(issue);
 
   return (
     <aside className={styles.drawer} aria-label={mode === "bug" ? "Create Issue" : "Suggestion to Fix"}>
@@ -823,10 +840,18 @@ function IssueActionDrawer({
               <p>{issue.howToTest}</p>
             </article>
           ) : null}
-          {issue.helpUrl ? (
-            <a href={issue.helpUrl} rel="noreferrer" target="_blank">
-              Open reference
-            </a>
+          {referenceLinks.length > 0 ? (
+            <article>
+              <h4>References</h4>
+              <div className={styles.referenceList}>
+                {referenceLinks.map((link) => (
+                  <a href={link.url} key={`${link.source}-${link.url}`} rel="noreferrer" target="_blank">
+                    <span>{link.label}</span>
+                    {link.source ? <small>{link.source}</small> : null}
+                  </a>
+                ))}
+              </div>
+            </article>
           ) : null}
         </div>
       )}
@@ -924,6 +949,115 @@ function SourceDebugger({
       </div>
     </section>
   );
+}
+
+const COUNTRY_REFERENCE_LINKS: Record<string, ReferenceLink[]> = {
+  "US - ADA / Section 508": [
+    {
+      label: "ADA web accessibility guidance",
+      source: "ADA",
+      url: "https://www.ada.gov/resources/web-guidance/",
+    },
+    {
+      label: "Section 508 ICT standards",
+      source: "Section 508",
+      url: "https://www.access-board.gov/ict/",
+    },
+  ],
+  "UK - Equality Act / PSBAR 2018": [
+    {
+      label: "UK public sector accessibility requirements",
+      source: "UK GOV",
+      url: "https://www.gov.uk/guidance/accessibility-requirements-for-public-sector-websites-and-apps",
+    },
+  ],
+  "EU - EAA / EN 301 549": [
+    {
+      label: "EU web accessibility policy",
+      source: "EU",
+      url: "https://digital-strategy.ec.europa.eu/en/policies/web-accessibility",
+    },
+  ],
+  "Canada - ACA / AODA": [
+    {
+      label: "Canada accessibility guidance",
+      source: "Canada",
+      url: "https://www.canada.ca/en/government/about/accessibility.html",
+    },
+  ],
+  "Australia - DDA": [
+    {
+      label: "Australian web accessibility advisory notes",
+      source: "Australia DDA",
+      url: "https://humanrights.gov.au/our-work/disability-rights/world-wide-web-access-disability-discrimination-act-advisory-notes-ver-41-2014",
+    },
+  ],
+  "India - RPwD Act / IS 17802": [
+    {
+      label: "India accessibility policy overview",
+      source: "WAI Policies",
+      url: "https://www.w3.org/WAI/policies/india/",
+    },
+  ],
+  "Japan - JIS X 8341-3": [
+    {
+      label: "Japan accessibility policy overview",
+      source: "WAI Policies",
+      url: "https://www.w3.org/WAI/policies/japan/",
+    },
+  ],
+  "Brazil - LBI / eMAG": [
+    {
+      label: "Brazil accessibility policy overview",
+      source: "WAI Policies",
+      url: "https://www.w3.org/WAI/policies/brazil/",
+    },
+  ],
+  "Singapore - DSS": [
+    {
+      label: "Singapore accessibility policy overview",
+      source: "WAI Policies",
+      url: "https://www.w3.org/WAI/policies/singapore/",
+    },
+  ],
+  "South Africa - PEPUDA": [
+    {
+      label: "South Africa accessibility policy overview",
+      source: "WAI Policies",
+      url: "https://www.w3.org/WAI/policies/south-africa/",
+    },
+  ],
+};
+
+function getIssueReferenceLinks(
+  issue?: AccessibilityIssue,
+  report?: AccessibilityReport,
+): ReferenceLink[] {
+  const links: ReferenceLink[] = [];
+
+  if (issue?.referenceLinks?.length) {
+    links.push(...issue.referenceLinks);
+  } else if (issue?.helpUrl) {
+    links.push({
+      label: "Accessibility reference",
+      source: issue.engine,
+      url: issue.helpUrl,
+    });
+  }
+
+  if (report?.complianceType === "Country Regulations" && report.countryRegulation) {
+    links.push(...(COUNTRY_REFERENCE_LINKS[report.countryRegulation] ?? []));
+  }
+
+  const seen = new Set<string>();
+  return links.filter((link) => {
+    if (!link.url || seen.has(link.url)) {
+      return false;
+    }
+
+    seen.add(link.url);
+    return true;
+  });
 }
 
 function getFileNameFromDisposition(disposition?: string): string | undefined {

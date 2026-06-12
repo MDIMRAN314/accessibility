@@ -44,6 +44,12 @@ describe("EnginePriority", () => {
         type: "Automated",
         engine: "ibm-equal-access",
         pageUrl: "https://example.com",
+        referenceLinks: [
+          {
+            label: "IBM reference",
+            url: "https://www.ibm.com/able/requirements/checker-rule-sets/",
+          },
+        ],
         elements: [{ selector: "#logo", status: "Fail" }],
       },
       {
@@ -53,6 +59,12 @@ describe("EnginePriority", () => {
         type: "Automated",
         engine: "htmlcs",
         pageUrl: "https://example.com",
+        referenceLinks: [
+          {
+            label: "WCAG reference",
+            url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+          },
+        ],
         elements: [{ selector: "#logo", status: "Fail" }],
       },
     ]);
@@ -70,6 +82,16 @@ describe("EnginePriority", () => {
       { engine: "axe-core", status: "Pass", count: 1 },
       { engine: "ibm-equal-access", status: "Fail", count: 1 },
       { engine: "htmlcs", status: "Fail", count: 1 },
+    ]);
+    expect(issues[0].referenceLinks).toEqual([
+      {
+        label: "IBM reference",
+        url: "https://www.ibm.com/able/requirements/checker-rule-sets/",
+      },
+      {
+        label: "WCAG reference",
+        url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+      },
     ]);
   });
 

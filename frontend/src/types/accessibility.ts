@@ -176,6 +176,7 @@ export interface AccessibilityIssue {
   howToTest?: string;
   automationJustification?: string;
   helpUrl?: string;
+  referenceLinks?: ReferenceLink[];
   engine?: "axe-core" | "ibm-equal-access" | "htmlcs" | string;
   enginePriority?: number;
   engineResults?: Array<{
@@ -191,6 +192,12 @@ export interface AccessibilityIssue {
   suppressedByPriority?: boolean;
   suppressedByEngine?: string;
   createdAt?: string;
+}
+
+export interface ReferenceLink {
+  label: string;
+  url: string;
+  source?: string;
 }
 
 export interface ReportCriterion {

@@ -933,6 +933,14 @@ class AccessibilityTester {
             : resultType === "incomplete"
               ? "Manual Review"
               : "Fail";
+      const description = result.description || result.help;
+      const suggestedFix = this.createSuggestedFix({
+        description,
+        rawSuggestion: this.getAxeFailureSummary(result) || result.help,
+        criterion,
+        criterionConfig,
+        helpUrl: result.helpUrl,
+      });
 
       const issueIdParts = [
         resultType.toUpperCase(),
@@ -946,7 +954,7 @@ class AccessibilityTester {
         criterion,
         principle: config?.principle,
         guideline,
-        description: result.description || result.help,
+        description,
         severity:
           status === "Pass"
             ? "None"
@@ -960,10 +968,18 @@ class AccessibilityTester {
         elements: (result.nodes || []).map((node, nodeIndex) =>
           this.mapNodeToElement(node, nodeIndex, pageContext, status),
         ),
-        suggestedFix: result.help,
+        suggestedFix,
         howToTest: criterionConfig?.howToTest,
         automationJustification: criterionConfig?.automationJustification,
         helpUrl: result.helpUrl,
+        referenceLinks: this.getReferenceLinks({
+          engine: "axe-core",
+          helpUrl: result.helpUrl,
+          ruleId: result.id,
+          criterion,
+          criterionConfig,
+          wcagVersion,
+        }),
         engine: "axe-core",
         enginePriority: EnginePriority.getEnginePriority("axe-core"),
         rawStatus: status,
@@ -1033,6 +1049,16 @@ class AccessibilityTester {
         const config = wcagStandards[wcagVersion]?.guidelines?.[guideline];
         const status = this.mapIbmStatus(result);
         const severity = this.mapIbmSeverity(result, status);
+        const description =
+          result.message || result.ruleId || "IBM Equal Access result";
+        const helpUrl = this.getIbmHelpUrl(result.ruleId);
+        const suggestedFix = this.createSuggestedFix({
+          description,
+          rawSuggestion: result.message,
+          criterion,
+          criterionConfig,
+          helpUrl,
+        });
         const issueId = [
           "IBM",
           pageContext.pageIndex || 1,
@@ -1050,7 +1076,7 @@ class AccessibilityTester {
           criterion,
           principle: config?.principle,
           guideline,
-          description: result.message || result.ruleId || "IBM Equal Access result",
+          description,
           severity,
           status,
           type: criterionConfig?.type || config?.type || "Automated",
@@ -1058,10 +1084,18 @@ class AccessibilityTester {
           pageTitle: pageContext.pageTitle,
           pageDepth: pageContext.pageDepth,
           elements: [this.mapIbmElement(result, index, pageContext, status)],
-          suggestedFix: result.message || "Review the affected element.",
+          suggestedFix,
           howToTest: criterionConfig?.howToTest,
           automationJustification: criterionConfig?.automationJustification,
-          helpUrl: this.getIbmHelpUrl(result.ruleId),
+          helpUrl,
+          referenceLinks: this.getReferenceLinks({
+            engine: "ibm-equal-access",
+            helpUrl,
+            ruleId: result.ruleId,
+            criterion,
+            criterionConfig,
+            wcagVersion,
+          }),
           engine: "ibm-equal-access",
           enginePriority: EnginePriority.getEnginePriority("ibm-equal-access"),
           rawStatus: status,
@@ -1134,6 +1168,13 @@ class AccessibilityTester {
         }
 
         const status = statusMap[result.typeName] || "Warning";
+        const description = result.message || result.code;
+        const suggestedFix = this.createSuggestedFix({
+          description,
+          rawSuggestion: result.message,
+          criterion,
+          criterionConfig,
+        });
 
         return {
           issueId: ["HTMLCS", pageContext.pageIndex || 1, result.code || index, index]
@@ -1142,7 +1183,7 @@ class AccessibilityTester {
           criterion,
           principle: config?.principle,
           guideline,
-          description: result.message || result.code,
+          description,
           severity: severityMap[result.typeName] || "Moderate",
           status,
           type: criterionConfig?.type || config?.type || "Automated",
@@ -1152,10 +1193,17 @@ class AccessibilityTester {
           elements: result.element
             ? [this.mapHtmlcsElement(result, pageContext, status)]
             : [],
-          suggestedFix: result.message,
+          suggestedFix,
           howToTest: criterionConfig?.howToTest,
           automationJustification: criterionConfig?.automationJustification,
           helpUrl: undefined,
+          referenceLinks: this.getReferenceLinks({
+            engine: "htmlcs",
+            ruleId: result.code,
+            criterion,
+            criterionConfig,
+            wcagVersion,
+          }),
           engine: "htmlcs",
           enginePriority: EnginePriority.getEnginePriority("htmlcs"),
           rawStatus: status,
@@ -1165,6 +1213,153 @@ class AccessibilityTester {
         };
       })
       .filter(Boolean);
+  }
+
+  static createSuggestedFix({
+    description,
+    rawSuggestion,
+    criterion,
+    criterionConfig,
+    helpUrl,
+  }) {
+    const criterionLabel = criterionConfig?.name
+      ? `${criterion} ${criterionConfig.name}`
+      : criterion;
+    const candidates = [
+      this.cleanGuidanceText(rawSuggestion),
+      criterionConfig?.howToTest
+        ? `Update the affected element so it satisfies WCAG ${criterionLabel}. Validate it by checking: ${criterionConfig.howToTest}`
+        : "",
+      helpUrl
+        ? `Open the linked accessibility reference and apply the remediation guidance for WCAG ${criterionLabel}.`
+        : "",
+      `Review the affected element against WCAG ${criterionLabel} and update the markup, accessible name, role, state, or styling as required.`,
+    ];
+    const normalizedDescription = this.normalizeGuidanceText(description);
+
+    return (
+      candidates.find(
+        (candidate) =>
+          candidate &&
+          this.normalizeGuidanceText(candidate) !== normalizedDescription,
+      ) || "Review the affected element and apply the relevant accessibility guidance."
+    );
+  }
+
+  static getAxeFailureSummary(result = {}) {
+    return (result.nodes || [])
+      .map((node) => node.failureSummary)
+      .filter(Boolean)
+      .map((summary) =>
+        summary
+          .replace(/Fix (?:all|any) of the following:\s*/gi, "")
+          .replace(/(?:\r?\n)+/g, "\n")
+          .trim(),
+      )
+      .find(Boolean);
+  }
+
+  static cleanGuidanceText(value = "") {
+    return String(value || "")
+      .replace(/Fix (?:all|any) of the following:\s*/gi, "")
+      .replace(/\s*\n\s*/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .trim();
+  }
+
+  static normalizeGuidanceText(value = "") {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[^\w\s.]/g, "")
+      .trim();
+  }
+
+  static getReferenceLinks({
+    engine,
+    helpUrl,
+    ruleId,
+    criterion,
+    criterionConfig,
+    wcagVersion,
+  }) {
+    const links = [];
+
+    if (helpUrl) {
+      const engineLabel =
+        engine === "axe-core"
+          ? "Deque axe rule"
+          : engine === "ibm-equal-access"
+            ? "IBM Equal Access rule"
+            : "Engine reference";
+
+      links.push({
+        label: ruleId ? `${engineLabel}: ${ruleId}` : engineLabel,
+        source: engine,
+        url: helpUrl,
+      });
+    }
+
+    const wcagUrl = this.getWcagUnderstandingUrl(
+      criterion,
+      criterionConfig,
+      wcagVersion,
+    );
+
+    if (wcagUrl) {
+      links.push({
+        label: `WCAG Understanding: ${criterion} ${criterionConfig?.name || ""}`.trim(),
+        source: "WCAG",
+        url: wcagUrl,
+      });
+    }
+
+    if (engine === "htmlcs") {
+      links.push({
+        label: "HTML_CodeSniffer WCAG standards",
+        source: "HTMLCS",
+        url: "https://squizlabs.github.io/HTML_CodeSniffer/Standards/WCAG2/",
+      });
+    }
+
+    return this.uniqueReferenceLinks(links);
+  }
+
+  static getWcagUnderstandingUrl(criterion, criterionConfig, wcagVersion) {
+    if (!criterion || !criterionConfig?.name) {
+      return null;
+    }
+
+    const versionPath =
+      wcagVersion === "2.0" || wcagVersion === "2.1"
+        ? "WCAG21"
+        : "WCAG22";
+
+    return `https://www.w3.org/WAI/${versionPath}/Understanding/${this.slugifyWcagName(
+      criterionConfig.name,
+    )}.html`;
+  }
+
+  static slugifyWcagName(value = "") {
+    return String(value)
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, "")
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  static uniqueReferenceLinks(links = []) {
+    const seen = new Set();
+
+    return links.filter((link) => {
+      if (!link?.url || seen.has(link.url)) {
+        return false;
+      }
+
+      seen.add(link.url);
+      return true;
+    });
   }
 
   static mapNodeToElement(
@@ -1588,14 +1783,11 @@ class AccessibilityTester {
           return;
         }
 
-        if (!element.selector) {
+        if (!element.selector && !element.xpath) {
           continue;
         }
 
-        const screenshot = await this.captureHighlightedScreenshot(
-          page,
-          element.selector,
-        );
+        const screenshot = await this.captureHighlightedScreenshot(page, element);
 
         if (screenshot) {
           element.screenshot = screenshot;
@@ -1605,24 +1797,75 @@ class AccessibilityTester {
     }
   }
 
-  static async captureHighlightedScreenshot(page, selector) {
+  static async captureHighlightedScreenshot(page, element) {
     try {
-      const element = await page.$(selector);
+      const highlighted = await page.evaluate(
+        ({
+          highlightAttribute,
+          highlightStyleId,
+          targetSelector,
+          targetXpath,
+        }) => {
+          const getTarget = () => {
+            if (targetSelector) {
+              try {
+                const target = document.querySelector(targetSelector);
+                if (target) return target;
+              } catch {
+                // Fall back to XPath below when CSS selectors from tools are not usable.
+              }
+            }
 
-      if (!element) {
-        return null;
-      }
+            if (targetXpath) {
+              try {
+                return document.evaluate(
+                  targetXpath,
+                  document,
+                  null,
+                  XPathResult.FIRST_ORDERED_NODE_TYPE,
+                  null,
+                ).singleNodeValue;
+              } catch {
+                return null;
+              }
+            }
 
-      await page.evaluate(
-        ({ highlightAttribute, highlightStyleId, targetSelector }) => {
+            return null;
+          };
+
           if (!document.getElementById(highlightStyleId)) {
             const style = document.createElement("style");
             style.id = highlightStyleId;
             style.textContent = `
               [${highlightAttribute}="true"] {
-                outline: 4px solid #ff2d55 !important;
-                outline-offset: 3px !important;
-                box-shadow: 0 0 0 6px rgba(255, 45, 85, 0.25) !important;
+                outline: 6px solid #ff2d55 !important;
+                outline-offset: 4px !important;
+                box-shadow: 0 0 0 10px rgba(255, 45, 85, 0.28) !important;
+              }
+              #accessibility-poc-highlight-overlay {
+                background: rgba(255, 45, 85, 0.18) !important;
+                border: 6px solid #ff2d55 !important;
+                border-radius: 6px !important;
+                box-shadow: 0 0 0 9999px rgba(8, 14, 26, 0.14), 0 0 0 12px rgba(255, 45, 85, 0.28) !important;
+                box-sizing: border-box !important;
+                color: #ffffff !important;
+                font: 700 13px Arial, sans-serif !important;
+                pointer-events: none !important;
+                position: fixed !important;
+                z-index: 2147483647 !important;
+              }
+              #accessibility-poc-highlight-overlay::before {
+                background: #ff2d55 !important;
+                border-radius: 4px 4px 0 0 !important;
+                bottom: 100% !important;
+                content: "Accessibility issue" !important;
+                left: -6px !important;
+                max-width: 260px !important;
+                overflow: hidden !important;
+                padding: 5px 8px !important;
+                position: absolute !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
               }
             `;
             document.head.appendChild(style);
@@ -1632,21 +1875,46 @@ class AccessibilityTester {
             .querySelectorAll(`[${highlightAttribute}="true"]`)
             .forEach((node) => node.removeAttribute(highlightAttribute));
 
-          const target = document.querySelector(targetSelector);
+          document
+            .querySelectorAll("#accessibility-poc-highlight-overlay")
+            .forEach((node) => node.remove());
 
-          if (target) {
-            target.setAttribute(highlightAttribute, "true");
-            target.scrollIntoView({ block: "center", inline: "center" });
+          const target = getTarget();
+
+          if (!target || target.nodeType !== Node.ELEMENT_NODE) {
+            return false;
           }
+
+          target.setAttribute(highlightAttribute, "true");
+          target.scrollIntoView({ block: "center", inline: "center" });
+          const rect = target.getBoundingClientRect();
+          const minSize = 32;
+          const width = Math.max(rect.width, minSize);
+          const height = Math.max(rect.height, minSize);
+          const left = Math.max(rect.left - Math.max((width - rect.width) / 2, 0), 8);
+          const top = Math.max(rect.top - Math.max((height - rect.height) / 2, 0), 28);
+          const overlay = document.createElement("div");
+          overlay.id = "accessibility-poc-highlight-overlay";
+          overlay.style.left = `${Math.min(left, window.innerWidth - minSize - 8)}px`;
+          overlay.style.top = `${Math.min(top, window.innerHeight - minSize - 8)}px`;
+          overlay.style.width = `${Math.min(width, window.innerWidth - 16)}px`;
+          overlay.style.height = `${Math.min(height, window.innerHeight - 40)}px`;
+          document.body.appendChild(overlay);
+          return true;
         },
         {
           highlightAttribute: HIGHLIGHT_ATTRIBUTE,
           highlightStyleId: HIGHLIGHT_STYLE_ID,
-          targetSelector: selector,
+          targetSelector: element.selector,
+          targetXpath: element.xpath,
         },
       );
 
-      await page.waitForTimeout(150).catch(() => {});
+      if (!highlighted) {
+        return null;
+      }
+
+      await page.waitForTimeout(300).catch(() => {});
       const screenshot = await page.screenshot({ fullPage: false });
 
       return `data:image/png;base64,${screenshot.toString("base64")}`;
