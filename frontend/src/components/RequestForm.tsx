@@ -1,9 +1,17 @@
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import {
+  FormEvent,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CHECK_POINTS,
   CONFORMANCE_LEVELS,
   COUNTRY_REGULATIONS,
+  COUNTRY_REGULATION_DISPLAY_NAMES,
   DEFAULT_COUNTRY_REGULATION,
   REQUEST_TYPES,
   TASK_TYPES,
@@ -29,7 +37,10 @@ import type {
 } from "@/types/accessibility";
 import styles from "@styles/RequestForm.module.scss";
 
-type FormErrors = Partial<Record<keyof AccessibilityRequestPayload | "submit", string>>;
+type FormErrors = Partial<
+  Record<keyof AccessibilityRequestPayload | "submit", string>
+>;
+type DropdownId = "checkpoints" | "guidelines";
 
 const initialGuidelines = getDynamicGuidelines("2.2", CHECK_POINTS);
 
@@ -85,11 +96,23 @@ const summarizeGuidelines = (
   value: SelectedGuideline[],
   visibleGuidelines: GuidelineConfig[],
 ): string => {
-  if (value.includes("All") || value.length === 0) {
+  if (value.includes("All")) {
     return `All (${visibleGuidelines.length})`;
   }
 
+  if (value.length === 0) {
+    return "Select guidelines";
+  }
+
   return value.length === 1 ? value[0] : `${value.length} selected`;
+};
+
+const clampWeightage = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, value));
 };
 
 function RequestForm(): JSX.Element {
@@ -97,6 +120,9 @@ function RequestForm(): JSX.Element {
   const [form, setForm] = useState<AccessibilityRequestPayload>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generating, setGenerating] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
+  const checkPointDropdownRef = useRef<HTMLDetailsElement | null>(null);
+  const guidelineDropdownRef = useRef<HTMLDetailsElement | null>(null);
 
   const availableGuidelines = useMemo(
     () => getDynamicGuidelines(form.wcagVersion, form.checkPoints),
@@ -127,6 +153,46 @@ function RequestForm(): JSX.Element {
   );
 
   const weightageTotal = getWeightageTotal(form.successCriteriaWeightage);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!openDropdown) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      const isInsideDropdown =
+        checkPointDropdownRef.current?.contains(target) ||
+        guidelineDropdownRef.current?.contains(target);
+
+      if (!isInsideDropdown) {
+        setOpenDropdown(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openDropdown]);
+
+  const toggleDropdown = (dropdown: DropdownId) => {
+    setOpenDropdown((current) => (current === dropdown ? null : dropdown));
+  };
 
   const patchForm = (patch: Partial<AccessibilityRequestPayload>) => {
     setForm((current) => ({ ...current, ...patch }));
@@ -212,13 +278,19 @@ function RequestForm(): JSX.Element {
 
   const handleCheckPointToggle = (checkpoint: CheckPoint) => {
     setForm((current) => {
-      const currentWithoutAll = current.checkPoints.filter((item) => item !== "All");
+      const currentWithoutAll = current.checkPoints.filter(
+        (item) => item !== "All",
+      );
       let nextCheckPoints: CheckPoint[];
 
       if (checkpoint === "All") {
-        nextCheckPoints = CHECK_POINTS;
+        nextCheckPoints = current.checkPoints.includes("All")
+          ? []
+          : CHECK_POINTS;
       } else if (currentWithoutAll.includes(checkpoint)) {
-        nextCheckPoints = currentWithoutAll.filter((item) => item !== checkpoint);
+        nextCheckPoints = currentWithoutAll.filter(
+          (item) => item !== checkpoint,
+        );
       } else {
         nextCheckPoints = [...currentWithoutAll, checkpoint];
       }
@@ -227,45 +299,61 @@ function RequestForm(): JSX.Element {
         nextCheckPoints = CHECK_POINTS;
       }
 
-      if (nextCheckPoints.length === 0) {
-        nextCheckPoints = ["All"];
-      }
-
-      const visibleGuidelines = getDynamicGuidelines(current.wcagVersion, nextCheckPoints);
+      const visibleGuidelines = getDynamicGuidelines(
+        current.wcagVersion,
+        nextCheckPoints,
+      );
 
       return {
         ...current,
         checkPoints: nextCheckPoints,
-        guidelines: ["All"],
+        guidelines: visibleGuidelines.length > 0 ? ["All"] : [],
         successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
       };
     });
+    setErrors((current) => ({
+      ...current,
+      checkPoints: "",
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
   };
 
   const handleGuidelineToggle = (guideline: SelectedGuideline) => {
     setForm((current) => {
       if (guideline === "All") {
+        const shouldSelectAll = !current.guidelines.includes("All");
+
         return {
           ...current,
-          guidelines: ["All"],
-          successCriteriaWeightage: createDefaultWeightages(availableGuidelines),
+          guidelines:
+            shouldSelectAll && availableGuidelines.length > 0 ? ["All"] : [],
+          successCriteriaWeightage: shouldSelectAll
+            ? createDefaultWeightages(availableGuidelines)
+            : {},
         };
       }
 
       const currentIds = current.guidelines.includes("All")
         ? availableGuidelines.map((item) => item.id)
-        : current.guidelines.filter((item): item is Exclude<SelectedGuideline, "All"> => item !== "All");
+        : current.guidelines.filter(
+            (item): item is Exclude<SelectedGuideline, "All"> => item !== "All",
+          );
 
       const nextIds = currentIds.includes(guideline)
         ? currentIds.filter((item) => item !== guideline)
         : [...currentIds, guideline];
 
       const nextGuidelines: SelectedGuideline[] =
-        nextIds.length === availableGuidelines.length || nextIds.length === 0
+        availableGuidelines.length > 0 &&
+        nextIds.length === availableGuidelines.length
           ? ["All"]
           : nextIds;
 
-      const renderable = getRenderableGuidelines(nextGuidelines, availableGuidelines);
+      const renderable = getRenderableGuidelines(
+        nextGuidelines,
+        availableGuidelines,
+      );
 
       return {
         ...current,
@@ -276,11 +364,47 @@ function RequestForm(): JSX.Element {
         ),
       };
     });
+    setErrors((current) => ({
+      ...current,
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
   };
 
-  const handleWcagVersionChange = (wcagVersion: AccessibilityRequestPayload["wcagVersion"]) => {
+  const selectAllGuidelines = () => {
+    setForm((current) => ({
+      ...current,
+      guidelines: availableGuidelines.length > 0 ? ["All"] : [],
+      successCriteriaWeightage: createDefaultWeightages(availableGuidelines),
+    }));
+    setErrors((current) => ({
+      ...current,
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
+  };
+
+  const deselectAllGuidelines = () => {
+    setForm((current) => ({
+      ...current,
+      guidelines: [],
+      successCriteriaWeightage: {},
+    }));
+    setErrors((current) => ({
+      ...current,
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
+  };
+
+  const handleWcagVersionChange = (
+    wcagVersion: AccessibilityRequestPayload["wcagVersion"],
+  ) => {
     setForm((current) => {
-      const visibleGuidelines = getDynamicGuidelines(wcagVersion, current.checkPoints);
+      const visibleGuidelines = getDynamicGuidelines(
+        wcagVersion,
+        current.checkPoints,
+      );
 
       return {
         ...current,
@@ -292,13 +416,28 @@ function RequestForm(): JSX.Element {
   };
 
   const handleWeightageChange = (guidelineId: string, value: number) => {
-    setForm((current) => ({
-      ...current,
-      successCriteriaWeightage: {
-        ...current.successCriteriaWeightage,
-        [guidelineId]: Number.isNaN(value) ? 0 : value,
-      },
-    }));
+    setForm((current) => {
+      const nextValue = clampWeightage(value);
+      const otherTotal = Object.entries(
+        current.successCriteriaWeightage,
+      ).reduce(
+        (total, [id, weightage]) =>
+          id === guidelineId
+            ? total
+            : total + clampWeightage(Number(weightage)),
+        0,
+      );
+      const maxAllowed = Math.max(0, 100 - otherTotal);
+
+      return {
+        ...current,
+        successCriteriaWeightage: {
+          ...current.successCriteriaWeightage,
+          [guidelineId]: Math.min(nextValue, maxAllowed),
+        },
+      };
+    });
+    setErrors((current) => ({ ...current, successCriteriaWeightage: "" }));
   };
 
   const resetWeightages = () => {
@@ -315,7 +454,10 @@ function RequestForm(): JSX.Element {
       nextErrors.url = urlError;
     }
 
-    if (form.taskType === "Guidelines Check" && selectedGuidelineIds.length === 0) {
+    if (
+      form.taskType === "Guidelines Check" &&
+      selectedGuidelineIds.length === 0
+    ) {
       nextErrors.guidelines = "At least one guideline is required";
     }
 
@@ -327,7 +469,10 @@ function RequestForm(): JSX.Element {
         "Total weightage must be greater than 0 and no more than 100";
     }
 
-    if (form.scanScope === "Site" && (form.maxPages < 1 || form.maxPages > 50)) {
+    if (
+      form.scanScope === "Site" &&
+      (form.maxPages < 1 || form.maxPages > 50)
+    ) {
       nextErrors.maxPages = "Max pages must be between 1 and 50";
     }
 
@@ -366,7 +511,7 @@ function RequestForm(): JSX.Element {
           : selectedGuidelineIds,
         countryRegulation:
           form.complianceType === "Country Regulations"
-            ? form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION
+            ? (form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION)
             : undefined,
       };
 
@@ -378,7 +523,10 @@ function RequestForm(): JSX.Element {
       navigate(`/report/${reportResponse.data.report.reportId}`);
     } catch (error) {
       setErrors({
-        submit: getApiErrorMessage(error, "Failed to process accessibility test"),
+        submit: getApiErrorMessage(
+          error,
+          "Failed to process accessibility test",
+        ),
       });
     } finally {
       setGenerating(false);
@@ -393,7 +541,11 @@ function RequestForm(): JSX.Element {
           <h2>Create accessibility request</h2>
         </div>
         <div className={styles.headerActions}>
-          <button type="button" title="Request details" aria-label="Request details">
+          <button
+            type="button"
+            title="Request details"
+            aria-label="Request details"
+          >
             i
           </button>
           <button type="button" title="Save" aria-label="Save">
@@ -403,9 +555,15 @@ function RequestForm(): JSX.Element {
       </header>
 
       <form className={styles.formShell} onSubmit={handleSubmit}>
-        {errors.submit ? <div className={styles.errorBanner}>{errors.submit}</div> : null}
+        {errors.submit ? (
+          <div className={styles.errorBanner}>{errors.submit}</div>
+        ) : null}
 
-        <div className={styles.requestTypeTabs} role="tablist" aria-label="Request Type">
+        <div
+          className={styles.requestTypeTabs}
+          role="tablist"
+          aria-label="Request Type"
+        >
           {REQUEST_TYPES.map((type) => (
             <button
               aria-selected={form.requestType === type}
@@ -423,7 +581,9 @@ function RequestForm(): JSX.Element {
         <div className={styles.fieldGrid}>
           <Field label="Request Name">
             <input
-              onChange={(event) => patchForm({ requestName: event.target.value })}
+              onChange={(event) =>
+                patchForm({ requestName: event.target.value })
+              }
               placeholder="Homepage audit"
               type="text"
               value={form.requestName ?? ""}
@@ -444,7 +604,8 @@ function RequestForm(): JSX.Element {
             <select
               onChange={(event) =>
                 patchForm({
-                  taskType: event.target.value as AccessibilityRequestPayload["taskType"],
+                  taskType: event.target
+                    .value as AccessibilityRequestPayload["taskType"],
                 })
               }
               value={form.taskType}
@@ -464,21 +625,25 @@ function RequestForm(): JSX.Element {
             <span>{form.scanScope === "Site" ? "Site" : "Page"}</span>
           </header>
           <div className={styles.coverageGrid}>
-            <div className={styles.segmentedControl} role="radiogroup" aria-label="Scan scope">
-              {(["Page", "Site"] as AccessibilityRequestPayload["scanScope"][]).map(
-                (scope) => (
-                  <button
-                    aria-checked={form.scanScope === scope}
-                    className={form.scanScope === scope ? styles.active : ""}
-                    key={scope}
-                    onClick={() => handleScanScopeChange(scope)}
-                    role="radio"
-                    type="button"
-                  >
-                    {scope}
-                  </button>
-                ),
-              )}
+            <div
+              className={styles.segmentedControl}
+              role="radiogroup"
+              aria-label="Scan scope"
+            >
+              {(
+                ["Page", "Site"] as AccessibilityRequestPayload["scanScope"][]
+              ).map((scope) => (
+                <button
+                  aria-checked={form.scanScope === scope}
+                  className={form.scanScope === scope ? styles.active : ""}
+                  key={scope}
+                  onClick={() => handleScanScopeChange(scope)}
+                  role="radio"
+                  type="button"
+                >
+                  {scope}
+                </button>
+              ))}
             </div>
 
             <Field label="Max Pages" error={errors.maxPages}>
@@ -510,7 +675,9 @@ function RequestForm(): JSX.Element {
             <label className={styles.toggleField}>
               <input
                 checked={form.autoScroll}
-                onChange={(event) => patchForm({ autoScroll: event.target.checked })}
+                onChange={(event) =>
+                  patchForm({ autoScroll: event.target.checked })
+                }
                 type="checkbox"
               />
               <span>Auto-scroll</span>
@@ -534,8 +701,20 @@ function RequestForm(): JSX.Element {
           <>
             <div className={styles.fieldGrid}>
               <Field label="Accessibility Check Points" required>
-                <details className={styles.multiSelect}>
-                  <summary>{summarizeCheckPoints(form.checkPoints)}</summary>
+                <details
+                  className={styles.multiSelect}
+                  open={openDropdown === "checkpoints"}
+                  ref={checkPointDropdownRef}
+                >
+                  <summary
+                    aria-expanded={openDropdown === "checkpoints"}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      toggleDropdown("checkpoints");
+                    }}
+                  >
+                    {summarizeCheckPoints(form.checkPoints)}
+                  </summary>
                   <div className={styles.optionPanel}>
                     {CHECK_POINTS.map((checkpoint) => (
                       <label key={checkpoint}>
@@ -571,7 +750,9 @@ function RequestForm(): JSX.Element {
                   <input
                     checked={form.complianceType === "Country Regulations"}
                     name="complianceType"
-                    onChange={() => handleComplianceChange("Country Regulations")}
+                    onChange={() =>
+                      handleComplianceChange("Country Regulations")
+                    }
                     type="radio"
                   />
                   <span>Country Regulations</span>
@@ -586,7 +767,8 @@ function RequestForm(): JSX.Element {
                     <select
                       onChange={(event) =>
                         handleWcagVersionChange(
-                          event.target.value as AccessibilityRequestPayload["wcagVersion"],
+                          event.target
+                            .value as AccessibilityRequestPayload["wcagVersion"],
                         )
                       }
                       value={form.wcagVersion}
@@ -603,8 +785,8 @@ function RequestForm(): JSX.Element {
                     <select
                       onChange={(event) =>
                         patchForm({
-                          conformanceLevel:
-                            event.target.value as AccessibilityRequestPayload["conformanceLevel"],
+                          conformanceLevel: event.target
+                            .value as AccessibilityRequestPayload["conformanceLevel"],
                         })
                       }
                       value={form.conformanceLevel}
@@ -622,13 +804,15 @@ function RequestForm(): JSX.Element {
                   <Field label="Country Regulations" required>
                     <select
                       onChange={(event) =>
-                        handleCountryChange(event.target.value as CountryRegulation)
+                        handleCountryChange(
+                          event.target.value as CountryRegulation,
+                        )
                       }
                       value={form.countryRegulation}
                     >
                       {COUNTRY_REGULATIONS.map((regulation) => (
                         <option key={regulation} value={regulation}>
-                          {regulation}
+                          {COUNTRY_REGULATION_DISPLAY_NAMES[regulation]}
                         </option>
                       ))}
                     </select>
@@ -646,14 +830,28 @@ function RequestForm(): JSX.Element {
 
               {form.complianceType === "WCAG Standards" ? (
                 <Field label="Guidelines" required error={errors.guidelines}>
-                  <details className={styles.multiSelect}>
-                    <summary>
-                      {summarizeGuidelines(form.guidelines, availableGuidelines)}
+                  <details
+                    className={styles.multiSelect}
+                    open={openDropdown === "guidelines"}
+                    ref={guidelineDropdownRef}
+                  >
+                    <summary
+                      aria-expanded={openDropdown === "guidelines"}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        toggleDropdown("guidelines");
+                      }}
+                    >
+                      {summarizeGuidelines(
+                        form.guidelines,
+                        availableGuidelines,
+                      )}
                     </summary>
                     <div className={styles.optionPanel}>
                       <label>
                         <input
                           checked={form.guidelines.includes("All")}
+                          disabled={availableGuidelines.length === 0}
                           onChange={() => handleGuidelineToggle("All")}
                           type="checkbox"
                         />
@@ -683,7 +881,13 @@ function RequestForm(): JSX.Element {
             <section className={styles.weightagePanel}>
               <header>
                 <h3>Success Criteria Weightage</h3>
-                <div className={weightageTotal > 0 && weightageTotal <= 100 ? styles.totalOk : styles.totalError}>
+                <div
+                  className={
+                    weightageTotal > 0 && weightageTotal <= 100
+                      ? styles.totalOk
+                      : styles.totalError
+                  }
+                >
                   Total Weightage : {weightageTotal}/100
                   <button
                     aria-label="Reset weightage"
@@ -696,7 +900,9 @@ function RequestForm(): JSX.Element {
                 </div>
               </header>
               {errors.successCriteriaWeightage ? (
-                <p className={styles.fieldError}>{errors.successCriteriaWeightage}</p>
+                <p className={styles.fieldError}>
+                  {errors.successCriteriaWeightage}
+                </p>
               ) : null}
               <div className={styles.weightageTable}>
                 <div className={styles.tableHeader}>
@@ -705,36 +911,50 @@ function RequestForm(): JSX.Element {
                   <span>Weightage in %</span>
                 </div>
                 {groupedGuidelines.map((group) =>
-                  group.guidelines.map((guideline, index) => (
-                    <div className={styles.tableRow} key={guideline.id}>
-                      <span>{index === 0 ? `${groupedGuidelines.indexOf(group) + 1}. ${group.principle}` : ""}</span>
-                      <span>
-                        {guideline.id} - {guideline.name}
-                      </span>
-                      <span>
-                        <input
-                          aria-label={`Weightage for ${guideline.name}`}
-                          max={100}
-                          min={0}
-                          onChange={(event) =>
-                            handleWeightageChange(
-                              guideline.id,
-                              Number(event.target.value),
-                            )
-                          }
-                          type="number"
-                          value={form.successCriteriaWeightage[guideline.id] ?? 0}
-                        />
-                      </span>
-                    </div>
-                  )),
+                  group.guidelines.map((guideline, index) => {
+                    const currentWeightage =
+                      form.successCriteriaWeightage[guideline.id] ?? 0;
+                    const maxWeightage = Math.max(
+                      0,
+                      100 - (weightageTotal - currentWeightage),
+                    );
+
+                    return (
+                      <div className={styles.tableRow} key={guideline.id}>
+                        <span>
+                          {index === 0
+                            ? `${groupedGuidelines.indexOf(group) + 1}. ${group.principle}`
+                            : ""}
+                        </span>
+                        <span>
+                          {guideline.id} - {guideline.name}
+                        </span>
+                        <span>
+                          <input
+                            aria-label={`Weightage for ${guideline.name}`}
+                            max={maxWeightage}
+                            min={0}
+                            onChange={(event) =>
+                              handleWeightageChange(
+                                guideline.id,
+                                Number(event.target.value),
+                              )
+                            }
+                            type="number"
+                            value={currentWeightage}
+                          />
+                        </span>
+                      </div>
+                    );
+                  }),
                 )}
               </div>
             </section>
           </>
         ) : (
           <div className={styles.pendingMode}>
-            {form.taskType} is configured as a request type and can be saved for later workflow automation.
+            {form.taskType} is configured as a request type and can be saved for
+            later workflow automation.
           </div>
         )}
 
@@ -755,7 +975,12 @@ interface FieldProps {
   required?: boolean;
 }
 
-function Field({ children, error, label, required = false }: FieldProps): JSX.Element {
+function Field({
+  children,
+  error,
+  label,
+  required = false,
+}: FieldProps): JSX.Element {
   return (
     <label className={styles.field}>
       <span>
@@ -771,13 +996,12 @@ function Field({ children, error, label, required = false }: FieldProps): JSX.El
 function patchToEmptyErrors(
   patch: Partial<AccessibilityRequestPayload>,
 ): Partial<Record<keyof AccessibilityRequestPayload, string>> {
-  return Object.keys(patch).reduce<Partial<Record<keyof AccessibilityRequestPayload, string>>>(
-    (cleared, key) => {
-      cleared[key as keyof AccessibilityRequestPayload] = "";
-      return cleared;
-    },
-    {},
-  );
+  return Object.keys(patch).reduce<
+    Partial<Record<keyof AccessibilityRequestPayload, string>>
+  >((cleared, key) => {
+    cleared[key as keyof AccessibilityRequestPayload] = "";
+    return cleared;
+  }, {});
 }
 
 export default RequestForm;

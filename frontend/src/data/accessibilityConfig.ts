@@ -103,12 +103,28 @@ const COUNTRY_REGULATION_ALIASES: Record<string, CountryRegulation> = {
   "US - ADA / Section 508": "United States - ADA / Section 508",
   "UK - Equality Act / PSBAR 2018":
     "United Kingdom - Equality Act / PSBAR 2018",
+  "UK - Equality Act 2010 / PSBAR 2018":
+    "United Kingdom - Equality Act / PSBAR 2018",
   "EU - EAA / EN 301 549": "European Union - EAA / EN 301 549",
 };
 
 export const COUNTRY_REGULATIONS = Object.keys(
   COUNTRY_COMPLIANCE_ALIGNMENTS,
 ) as CountryRegulation[];
+
+export const COUNTRY_REGULATION_DISPLAY_NAMES: Record<CountryRegulation, string> = {
+  "United States - ADA / Section 508": "USA - ADA / Section 508",
+  "United Kingdom - Equality Act / PSBAR 2018":
+    "UK - Equality Act 2010 / PSBAR 2018",
+  "European Union - EAA / EN 301 549": "EU - EAA / EN 301 549",
+  "Canada - ACA / AODA": "Canada - ACA / AODA",
+  "Australia - DDA": "Australia - DDA",
+  "India - RPwD Act / IS 17802": "India - RPwD Act / IS 17802",
+  "Japan - JIS X 8341-3": "Japan - JIS X 8341-3",
+  "Brazil - LBI / eMAG": "Brazil - LBI / eMAG",
+  "Singapore - DSS": "Singapore - DSS",
+  "South Africa - PEPUDA": "South Africa - PEPUDA",
+};
 
 export const normalizeCountryRegulation = (
   countryRegulation?: string,
@@ -122,6 +138,16 @@ export const normalizeCountryRegulation = (
   }
 
   return COUNTRY_REGULATION_ALIASES[countryRegulation];
+};
+
+export const getCountryRegulationDisplayName = (
+  countryRegulation?: string,
+): string => {
+  const normalizedCountryRegulation = normalizeCountryRegulation(countryRegulation);
+
+  return normalizedCountryRegulation
+    ? COUNTRY_REGULATION_DISPLAY_NAMES[normalizedCountryRegulation]
+    : countryRegulation ?? "";
 };
 
 export const getCountryComplianceAlignment = (
@@ -333,8 +359,12 @@ export const getDynamicGuidelines = (
 ): GuidelineConfig[] => {
   const guidelines = getGuidelinesForVersion(version);
 
-  if (selectedCheckPoints.includes("All") || selectedCheckPoints.length === 0) {
+  if (selectedCheckPoints.includes("All")) {
     return guidelines;
+  }
+
+  if (selectedCheckPoints.length === 0) {
+    return [];
   }
 
   const selected = new Set(selectedCheckPoints);
@@ -347,8 +377,12 @@ export const getSelectedGuidelineIds = (
   selectedGuidelines: SelectedGuideline[],
   visibleGuidelines: GuidelineConfig[],
 ): GuidelineId[] => {
-  if (selectedGuidelines.includes("All") || selectedGuidelines.length === 0) {
+  if (selectedGuidelines.includes("All")) {
     return visibleGuidelines.map((guideline) => guideline.id);
+  }
+
+  if (selectedGuidelines.length === 0) {
+    return [];
   }
 
   const visibleIds = new Set(visibleGuidelines.map((guideline) => guideline.id));

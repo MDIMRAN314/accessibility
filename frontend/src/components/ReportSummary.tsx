@@ -5,6 +5,7 @@ import {
   formatDuration,
   isBestPracticeConfigured,
 } from "@/utils/reportModel";
+import { getCountryRegulationDisplayName } from "@/data/accessibilityConfig";
 import type {
   AccessibilityReport,
   ReportIssueTab,
@@ -54,7 +55,7 @@ function ReportSummary({
         : "High";
   const complianceLabel =
     report.complianceType === "Country Regulations" && report.countryRegulation
-      ? report.countryRegulation
+      ? getCountryRegulationDisplayName(report.countryRegulation)
       : `WCAG ${report.wcagVersion} ${report.conformanceLevel}`;
 
   const issueCards: Array<{ label: string; tab: ReportIssueTab; value: number }> = [

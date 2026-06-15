@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCountryRegulationDisplayName } from "@/data/accessibilityConfig";
 import { accessibilityService, getApiErrorMessage } from "@/services/api";
 import type { AccessibilityRequest } from "@/types/accessibility";
 import styles from "@styles/RequestList.module.scss";
@@ -95,7 +96,7 @@ function RequestList(): JSX.Element {
                   <td>
                     {request.complianceType === "WCAG Standards"
                       ? `WCAG ${request.wcagVersion} ${request.conformanceLevel}`
-                      : request.countryRegulation}
+                      : getCountryRegulationDisplayName(request.countryRegulation)}
                   </td>
                   <td>
                     <span className={styles[`status${request.status}`]}>

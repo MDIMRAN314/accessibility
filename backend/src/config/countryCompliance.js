@@ -47,6 +47,8 @@ const countryRegulationAliases = {
   "US - ADA / Section 508": "United States - ADA / Section 508",
   "UK - Equality Act / PSBAR 2018":
     "United Kingdom - Equality Act / PSBAR 2018",
+  "UK - Equality Act 2010 / PSBAR 2018":
+    "United Kingdom - Equality Act / PSBAR 2018",
   "EU - EAA / EN 301 549": "European Union - EAA / EN 301 549",
 };
 

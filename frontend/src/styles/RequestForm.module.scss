@@ -264,6 +264,39 @@
   top: calc(100% + 4px);
   z-index: 20;
 
+  .optionActions {
+    background: #ffffff;
+    border-bottom: 1px solid #eef1f6;
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+    padding: 0 0 6px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+
+    button {
+      background: #f4f7fb;
+      border: 1px solid #cfd6e3;
+      border-radius: 5px;
+      color: #334155;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      min-height: 28px;
+      padding: 0 8px;
+
+      &:hover:not(:disabled) {
+        background: #eef2f7;
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+    }
+  }
+
   label {
     align-items: center;
     border-radius: 5px;

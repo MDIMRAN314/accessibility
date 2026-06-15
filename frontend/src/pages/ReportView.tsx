@@ -3,7 +3,10 @@ import { useParams } from "react-router-dom";
 import ElementView from "@/components/ElementView";
 import GuidelineView from "@/components/GuidelineView";
 import ReportSummary from "@/components/ReportSummary";
-import { normalizeCountryRegulation } from "@/data/accessibilityConfig";
+import {
+  getCountryRegulationDisplayName,
+  normalizeCountryRegulation,
+} from "@/data/accessibilityConfig";
 import { accessibilityService, getApiErrorMessage } from "@/services/api";
 import type {
   AccessibilityElement,
@@ -447,7 +450,7 @@ function RequestDetailsDrawer({ onClose, report }: RequestDetailsDrawerProps): J
           <dd>
             {report.complianceType === "WCAG Standards"
               ? `WCAG ${report.wcagVersion} ${report.conformanceLevel}`
-              : report.countryRegulation}
+              : getCountryRegulationDisplayName(report.countryRegulation)}
           </dd>
         </div>
         <div>
