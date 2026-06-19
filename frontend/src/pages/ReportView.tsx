@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import ElementView from "@/components/ElementView";
 import GuidelineView from "@/components/GuidelineView";
@@ -35,6 +35,15 @@ import {
 import styles from "@styles/ReportView.module.scss";
 
 type IssueActionSubject = { mode: "bug" | "suggestion"; issueId: string };
+type TranscriptAudioSegment = {
+  duration: number;
+  end: number;
+  start: number;
+  text: string;
+};
+
+const TRANSCRIPT_WORDS_PER_SECOND = 2.4;
+const TRANSCRIPT_SEEK_STEP_SECONDS = 10;
 
 function ReportView(): JSX.Element {
   const { reportId } = useParams<{ reportId: string }>();
@@ -50,6 +59,7 @@ function ReportView(): JSX.Element {
   const [issueActionSubject, setIssueActionSubject] = useState<IssueActionSubject | null>(null);
   const [debugElementKey, setDebugElementKey] = useState<string | null>(null);
   const [maximized, setMaximized] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   useEffect(() => {
     const loadReport = async () => {
@@ -74,6 +84,14 @@ function ReportView(): JSX.Element {
   }, [reportId]);
 
   const tabCounts = useMemo(() => (report ? getVisibleTabCounts(report) : []), [report]);
+  const isTranscriptionReport = Boolean(report?.transcription);
+  const isPdfReport = report?.requestDetails?.requestType === "PDF";
+  const scannedPages = report?.scannedPages ?? [];
+  const pagesScanned =
+    scannedPages.filter((page) => page.status !== "Failed").length ||
+    scannedPages.length ||
+    1;
+  const pagesFailed = scannedPages.filter((page) => page.status === "Failed").length;
 
   const filteredIssues = useMemo(
     () =>
@@ -102,13 +120,13 @@ function ReportView(): JSX.Element {
     setSeverityFilter(severity);
   };
 
-  const handleDownloadReport = async () => {
+  const handleDownloadReport = async (format: "html" | "pdf" = "html") => {
     if (!report) {
       return;
     }
 
     try {
-      const response = await accessibilityService.downloadReport(report.reportId);
+      const response = await accessibilityService.downloadReport(report.reportId, format);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       const disposition = response.headers["content-disposition"];
@@ -226,15 +244,39 @@ function ReportView(): JSX.Element {
             label="Generation Time"
             value={formatDuration(report.generationTime)}
           />
-          <Metric label="Score" value={`${report.accessibilityScore}%`} />
-          <Metric
-            label="Pages"
-            title={`${report.crawlSummary?.pagesFailed ?? 0} failed, ${report.crawlSummary?.pagesSkipped ?? 0} skipped`}
-            value={`${report.crawlSummary?.pagesScanned ?? report.scannedPages?.length ?? 1}`}
-          />
+          {isTranscriptionReport ? (
+            <>
+              <Metric
+                label="Screen Reader"
+                value={report.transcription?.screenReader ?? "JAWS"}
+              />
+              <Metric
+                label="Transcript Lines"
+                value={`${report.transcription?.stats.lines ?? 0}`}
+              />
+            </>
+          ) : (
+            <>
+              <Metric label="Score" value={`${report.accessibilityScore}%`} />
+              <Metric
+                label="Pages"
+                title={`${pagesFailed} failed`}
+                value={`${pagesScanned}`}
+              />
+            </>
+          )}
           <button onClick={() => setRequestDrawerOpen(true)} title="Request Details" type="button">
             Details
           </button>
+          {isPdfReport ? (
+            <button
+              onClick={() => setPdfPreviewOpen(true)}
+              title="Preview uploaded PDF"
+              type="button"
+            >
+              Preview PDF
+            </button>
+          ) : null}
           <button onClick={() => void handleDownloadReport()} title="Download Report" type="button">
             Download
           </button>
@@ -250,6 +292,7 @@ function ReportView(): JSX.Element {
 
       {error ? <div className={styles.inlineError}>{error}</div> : null}
 
+      {!isTranscriptionReport ? (
       <nav className={styles.primaryTabs} aria-label="Report sections">
         {[
           ["summary", "Summary"],
@@ -266,8 +309,9 @@ function ReportView(): JSX.Element {
           </button>
         ))}
       </nav>
+      ) : null}
 
-      {activeView !== "summary" ? (
+      {!isTranscriptionReport && activeView !== "summary" ? (
         <div className={styles.viewToolbar}>
           <div className={styles.issueTabs} role="tablist" aria-label="Issue type">
             {tabCounts
@@ -309,7 +353,14 @@ function ReportView(): JSX.Element {
       ) : null}
 
       <div className={styles.reportContent}>
-        {activeView === "summary" ? (
+        {isTranscriptionReport ? (
+          <TranscriptionReport
+            onDownloadPdf={() => void handleDownloadReport("pdf")}
+            report={report}
+          />
+        ) : null}
+
+        {!isTranscriptionReport && activeView === "summary" ? (
           <ReportSummary
             onNavigate={navigateSummary}
             onOpenRequestDetails={() => setRequestDrawerOpen(true)}
@@ -317,7 +368,7 @@ function ReportView(): JSX.Element {
           />
         ) : null}
 
-        {activeView === "guidelines" ? (
+        {!isTranscriptionReport && activeView === "guidelines" ? (
           <GuidelineView
             activeTab={activeIssueTab}
             onCreateIssue={(issueId) => setIssueActionSubject({ mode: "bug", issueId })}
@@ -334,7 +385,7 @@ function ReportView(): JSX.Element {
           />
         ) : null}
 
-        {activeView === "elements" ? (
+        {!isTranscriptionReport && activeView === "elements" ? (
           <ElementView
             activeTab={activeIssueTab}
             onElementStatusChange={handleElementStatusChange}
@@ -355,7 +406,7 @@ function ReportView(): JSX.Element {
         />
       ) : null}
 
-      {detailSubject ? (
+      {!isTranscriptionReport && detailSubject ? (
         <DetailDrawer
           elementGroups={elementGroups}
           issues={filteredIssues}
@@ -367,7 +418,7 @@ function ReportView(): JSX.Element {
         />
       ) : null}
 
-      {issueActionSubject ? (
+      {!isTranscriptionReport && issueActionSubject ? (
         <IssueActionDrawer
           issue={getIssueById(report, issueActionSubject.issueId)}
           mode={issueActionSubject.mode}
@@ -375,7 +426,7 @@ function ReportView(): JSX.Element {
         />
       ) : null}
 
-      {debugElementKey ? (
+      {!isTranscriptionReport && debugElementKey ? (
         <SourceDebugger
           elementGroup={getElementGroupByKey(report, debugElementKey)}
           onClose={() => setDebugElementKey(null)}
@@ -387,8 +438,443 @@ function ReportView(): JSX.Element {
           report={report}
         />
       ) : null}
+
+      {isPdfReport && pdfPreviewOpen ? (
+        <PdfPreviewModal
+          onClose={() => setPdfPreviewOpen(false)}
+          report={report}
+        />
+      ) : null}
+
     </section>
   );
+}
+
+function TranscriptionReport({
+  onDownloadPdf,
+  report,
+}: {
+  onDownloadPdf: () => void;
+  report: AccessibilityReport;
+}): JSX.Element {
+  const [activeTab, setActiveTab] = useState<"summary" | "details">("summary");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showCaptions, setShowCaptions] = useState(true);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+  const playbackRunIdRef = useRef(0);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const transcription = report.transcription;
+  const transcriptSegments = useMemo(
+    () => buildTranscriptAudioSegments(transcription?.actualContent ?? ""),
+    [transcription?.actualContent],
+  );
+  const estimatedDuration = Math.max(
+    1,
+    getTranscriptDuration(transcriptSegments) ||
+      Math.ceil(((transcription?.stats.words ?? 0) || 1) / TRANSCRIPT_WORDS_PER_SECOND),
+  );
+  const timelineValue = Math.min(
+    estimatedDuration,
+    Math.max(0, Math.round(elapsedSeconds)),
+  );
+  const currentSegment = transcriptSegments[currentSegmentIndex];
+
+  useEffect(
+    () => () => {
+      playbackRunIdRef.current += 1;
+      window.speechSynthesis?.cancel();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isSpeaking) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setElapsedSeconds((current) =>
+        current >= estimatedDuration ? estimatedDuration : current + 1,
+      );
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [estimatedDuration, isSpeaking]);
+
+  useEffect(() => {
+    setCurrentSegmentIndex(
+      getTranscriptSegmentIndexAtTime(transcriptSegments, elapsedSeconds),
+    );
+  }, [elapsedSeconds, transcriptSegments]);
+
+  useEffect(() => {
+    setElapsedSeconds(0);
+    setCurrentSegmentIndex(0);
+    playbackRunIdRef.current += 1;
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+  }, [transcription?.actualContent]);
+
+  if (!transcription) {
+    return <div className={styles.emptyReport}>No transcription data found.</div>;
+  }
+
+  const speakSegment = (segmentIndex: number, runId: number) => {
+    const segment = transcriptSegments[segmentIndex];
+
+    if (!segment || isMuted || !("speechSynthesis" in window)) {
+      setIsSpeaking(false);
+      return;
+    }
+
+    setCurrentSegmentIndex(segmentIndex);
+    setElapsedSeconds(segment.start);
+
+    const utterance = new SpeechSynthesisUtterance(segment.text);
+    utterance.rate = 0.95;
+    utterance.onend = () => {
+      if (playbackRunIdRef.current !== runId) {
+        return;
+      }
+
+      setElapsedSeconds(segment.end);
+      const nextSegmentIndex = segmentIndex + 1;
+
+      if (nextSegmentIndex >= transcriptSegments.length) {
+        currentUtteranceRef.current = null;
+        setIsSpeaking(false);
+        return;
+      }
+
+      speakSegment(nextSegmentIndex, runId);
+    };
+    utterance.onerror = () => {
+      if (playbackRunIdRef.current === runId) {
+        setIsSpeaking(false);
+      }
+    };
+
+    currentUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+  };
+
+  const startSpeechFromSegment = (segmentIndex: number) => {
+    if (isMuted || !("speechSynthesis" in window) || transcriptSegments.length === 0) {
+      return;
+    }
+
+    const safeSegmentIndex = Math.min(
+      Math.max(segmentIndex, 0),
+      transcriptSegments.length - 1,
+    );
+    playbackRunIdRef.current += 1;
+    const runId = playbackRunIdRef.current;
+    window.speechSynthesis.cancel();
+    speakSegment(safeSegmentIndex, runId);
+  };
+
+  const seekToSegment = (segmentIndex: number, resumePlayback = isSpeaking) => {
+    if (transcriptSegments.length === 0) {
+      return;
+    }
+
+    const safeSegmentIndex = Math.min(
+      Math.max(segmentIndex, 0),
+      transcriptSegments.length - 1,
+    );
+    const nextSegment = transcriptSegments[safeSegmentIndex];
+    playbackRunIdRef.current += 1;
+    window.speechSynthesis?.cancel();
+    currentUtteranceRef.current = null;
+    setCurrentSegmentIndex(safeSegmentIndex);
+    setElapsedSeconds(nextSegment.start);
+    setIsSpeaking(false);
+
+    if (resumePlayback && !isMuted) {
+      window.setTimeout(() => startSpeechFromSegment(safeSegmentIndex), 0);
+    }
+  };
+
+  const seekToTime = (seconds: number) => {
+    seekToSegment(
+      getTranscriptSegmentIndexAtTime(transcriptSegments, seconds),
+      isSpeaking,
+    );
+  };
+
+  const seekBySeconds = (seconds: number) => {
+    seekToTime(elapsedSeconds + seconds);
+  };
+
+  const playTranscript = () => {
+    if (isMuted || !("speechSynthesis" in window) || transcriptSegments.length === 0) {
+      return;
+    }
+
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      setIsSpeaking(true);
+      return;
+    }
+
+    const segmentIndex =
+      elapsedSeconds >= estimatedDuration
+        ? 0
+        : getTranscriptSegmentIndexAtTime(transcriptSegments, elapsedSeconds);
+    startSpeechFromSegment(segmentIndex);
+  };
+
+  const pauseTranscript = () => {
+    window.speechSynthesis?.pause();
+    setIsSpeaking(false);
+  };
+
+  const toggleMute = () => {
+    playbackRunIdRef.current += 1;
+    window.speechSynthesis?.cancel();
+    currentUtteranceRef.current = null;
+    setIsSpeaking(false);
+    setIsMuted((current) => !current);
+  };
+
+  const saveGoldenFile = () => {
+    const payload = {
+      requestId: report.requestId,
+      reportId: report.reportId,
+      url: report.url,
+      screenReader: transcription.screenReader,
+      mode: transcription.mode,
+      selectedCheckPoints: transcription.selectedCheckPoints,
+      pageTitle: transcription.pageTitle,
+      generatedAt: transcription.generatedAt,
+      actualContent: transcription.actualContent,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    const safeName = getRequestName(report).replace(/[^a-z0-9]+/gi, "_");
+
+    link.href = window.URL.createObjectURL(blob);
+    link.download = `${safeName || "transcription"}_jaws_golden.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(link.href);
+  };
+
+  return (
+    <section className={styles.transcriptionReport}>
+      <nav className={styles.transcriptionTabs} aria-label="Transcription views">
+        <button
+          className={activeTab === "summary" ? styles.active : ""}
+          onClick={() => setActiveTab("summary")}
+          type="button"
+        >
+          Summary
+        </button>
+        <button
+          className={activeTab === "details" ? styles.active : ""}
+          onClick={() => setActiveTab("details")}
+          type="button"
+        >
+          Detailed View
+        </button>
+      </nav>
+
+      <div className={styles.transcriptionUrl}>
+        <strong>URL:</strong> {transcription.url}
+      </div>
+
+      {activeTab === "summary" ? (
+        <div className={styles.transcriptionSummary}>
+          <article>
+            <h3>Screen Reader</h3>
+            <strong>{transcription.screenReader}</strong>
+            <span>
+              {transcription.mode === "actual-jaws-demo"
+                ? "Actual JAWS demo mode"
+                : "JAWS-style fallback"}
+            </span>
+          </article>
+          <article>
+            <h3>Page Title</h3>
+            <strong>{transcription.pageTitle}</strong>
+            <span>{transcription.selectedCheckPoints.length} checkpoints</span>
+          </article>
+          <article>
+            <h3>Transcript Size</h3>
+            <strong>{transcription.stats.lines} lines</strong>
+            <span>{transcription.stats.words} words</span>
+          </article>
+        </div>
+      ) : (
+        <div className={styles.transcriptionSections}>
+          {transcription.sections.map((section) => (
+            <article key={section.checkpoint}>
+              <h3>{section.checkpoint}</h3>
+              <ul>
+                {section.lines.map((line, index) => (
+                  <li key={`${section.checkpoint}-${index}`}>{line}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <section className={styles.transcriptPanel}>
+        <header>
+          <h3>Traversal Transcript</h3>
+          <div className={styles.transcriptActions}>
+            <button
+              aria-label="Download traversal transcript as PDF"
+              onClick={onDownloadPdf}
+              title="Download traversal transcript as PDF"
+              type="button"
+            >
+              PDF
+            </button>
+            <button
+              aria-label="Save to golden file"
+              className={styles.saveGoldenButton}
+              onClick={saveGoldenFile}
+              title="Save to golden file"
+              type="button"
+            >
+              Save
+            </button>
+          </div>
+        </header>
+        {showCaptions ? <pre>{transcription.actualContent}</pre> : null}
+        <div className={styles.audioControls}>
+          <button
+            aria-label={`Back ${TRANSCRIPT_SEEK_STEP_SECONDS} seconds`}
+            disabled={transcriptSegments.length === 0}
+            onClick={() => seekBySeconds(-TRANSCRIPT_SEEK_STEP_SECONDS)}
+            title={`Back ${TRANSCRIPT_SEEK_STEP_SECONDS} seconds`}
+            type="button"
+          >
+            -{TRANSCRIPT_SEEK_STEP_SECONDS}
+          </button>
+          <button
+            aria-label={isSpeaking ? "Pause transcription" : "Play transcription"}
+            disabled={isMuted || transcriptSegments.length === 0}
+            onClick={isSpeaking ? pauseTranscript : playTranscript}
+            title={isSpeaking ? "Pause" : "Play"}
+            type="button"
+          >
+            {isSpeaking ? "||" : ">"}
+          </button>
+          <button
+            aria-label={`Forward ${TRANSCRIPT_SEEK_STEP_SECONDS} seconds`}
+            disabled={transcriptSegments.length === 0}
+            onClick={() => seekBySeconds(TRANSCRIPT_SEEK_STEP_SECONDS)}
+            title={`Forward ${TRANSCRIPT_SEEK_STEP_SECONDS} seconds`}
+            type="button"
+          >
+            +{TRANSCRIPT_SEEK_STEP_SECONDS}
+          </button>
+          <span>{formatTranscriptTime(elapsedSeconds)}</span>
+          <input
+            aria-label="Transcript timeline"
+            max={estimatedDuration}
+            min={0}
+            onChange={(event) => seekToTime(Number(event.target.value))}
+            step={1}
+            type="range"
+            value={timelineValue}
+          />
+          <span>{formatTranscriptTime(estimatedDuration)}</span>
+          <button
+            aria-label={isMuted ? "Unmute transcription" : "Mute transcription"}
+            onClick={toggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+            type="button"
+          >
+            {isMuted ? "Unmute" : "Mute"}
+          </button>
+          <button
+            aria-label="Toggle captions"
+            className={showCaptions ? styles.active : ""}
+            onClick={() => setShowCaptions((current) => !current)}
+            title="Closed captions"
+            type="button"
+          >
+            CC
+          </button>
+        </div>
+        {currentSegment ? (
+          <p className={styles.audioPosition}>
+            {currentSegmentIndex + 1}/{transcriptSegments.length}: {currentSegment.text}
+          </p>
+        ) : null}
+      </section>
+
+      {transcription.notes?.length ? (
+        <div className={styles.transcriptionNote}>
+          {transcription.notes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      ) : null}
+
+    </section>
+  );
+}
+
+function formatTranscriptTime(seconds: number): string {
+  const normalizedSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const remainingSeconds = normalizedSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function buildTranscriptAudioSegments(content: string): TranscriptAudioSegment[] {
+  let cursor = 0;
+
+  return content
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((text) => {
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      const duration = Math.max(
+        1,
+        Math.ceil(wordCount / TRANSCRIPT_WORDS_PER_SECOND),
+      );
+      const segment = {
+        duration,
+        end: cursor + duration,
+        start: cursor,
+        text,
+      };
+      cursor = segment.end;
+
+      return segment;
+    });
+}
+
+function getTranscriptDuration(segments: TranscriptAudioSegment[]): number {
+  return segments.length > 0 ? segments[segments.length - 1].end : 0;
+}
+
+function getTranscriptSegmentIndexAtTime(
+  segments: TranscriptAudioSegment[],
+  seconds: number,
+): number {
+  if (segments.length === 0) {
+    return 0;
+  }
+
+  const safeSeconds = Math.max(0, seconds);
+  const index = segments.findIndex((segment) => safeSeconds < segment.end);
+
+  return index >= 0 ? index : segments.length - 1;
 }
 
 function Metric({
@@ -427,6 +913,7 @@ interface RequestDetailsDrawerProps {
 
 function RequestDetailsDrawer({ onClose, report }: RequestDetailsDrawerProps): JSX.Element {
   const details = report.requestDetails;
+  const isPdfReport = details?.requestType === "PDF";
 
   return (
     <aside className={styles.drawer} aria-label="Request details">
@@ -442,13 +929,15 @@ function RequestDetailsDrawer({ onClose, report }: RequestDetailsDrawerProps): J
           <dd>{getRequestName(report)}</dd>
         </div>
         <div>
-          <dt>URL</dt>
+          <dt>{isPdfReport ? "File" : "URL"}</dt>
           <dd>{report.url}</dd>
         </div>
         <div>
           <dt>Compliance</dt>
           <dd>
-            {report.complianceType === "WCAG Standards"
+            {isPdfReport && details?.pdfStandard
+              ? details.pdfStandard
+              : report.complianceType === "WCAG Standards"
               ? `WCAG ${report.wcagVersion} ${report.conformanceLevel}`
               : getCountryRegulationDisplayName(report.countryRegulation)}
           </dd>
@@ -458,17 +947,21 @@ function RequestDetailsDrawer({ onClose, report }: RequestDetailsDrawerProps): J
           <dd>{details?.requestType ?? "Web"}</dd>
         </div>
         <div>
-          <dt>Scan Scope</dt>
-          <dd>{details?.scanScope ?? report.scanScope ?? "Page"}</dd>
+          <dt>Pages Scanned</dt>
+          <dd>{isPdfReport ? "1 document" : (report.scannedPages?.length ?? 1)}</dd>
         </div>
-        <div>
-          <dt>Max Pages</dt>
-          <dd>{details?.maxPages ?? report.crawlSummary?.maxPages ?? 1}</dd>
-        </div>
-        <div>
-          <dt>Max Depth</dt>
-          <dd>{details?.maxDepth ?? report.crawlSummary?.maxDepth ?? 0}</dd>
-        </div>
+        {isPdfReport && details?.sourceFileSize ? (
+          <div>
+            <dt>File Size</dt>
+            <dd>{formatBytes(details.sourceFileSize)}</dd>
+          </div>
+        ) : null}
+        {isPdfReport && details?.pdfMaxFailures ? (
+          <div>
+            <dt>Max Failures</dt>
+            <dd>{details.pdfMaxFailures}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Check Points</dt>
           <dd>{details?.checkPoints?.join(", ") ?? "All"}</dd>
@@ -504,7 +997,68 @@ function RequestDetailsDrawer({ onClose, report }: RequestDetailsDrawerProps): J
           </dl>
         </section>
       ) : null}
+      {report.pdfValidation ? (
+        <section className={styles.weightageDetails}>
+          <h4>PDF Validation</h4>
+          <dl className={styles.detailList}>
+            <div>
+              <dt>Tool</dt>
+              <dd>{report.pdfValidation.tool}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>
+                {report.pdfValidation.toolAvailable
+                  ? report.pdfValidation.isCompliant
+                    ? "Compliant"
+                    : "Not compliant"
+                  : "veraPDF unavailable"}
+              </dd>
+            </div>
+            <div>
+              <dt>Failed Checks</dt>
+              <dd>{report.pdfValidation.failedChecks.length}</dd>
+            </div>
+            {report.pdfValidation.error ? (
+              <div>
+                <dt>Error</dt>
+                <dd>{report.pdfValidation.error}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
     </aside>
+  );
+}
+
+function PdfPreviewModal({
+  onClose,
+  report,
+}: {
+  onClose: () => void;
+  report: AccessibilityReport;
+}): JSX.Element {
+  const sourceUrl = accessibilityService.getReportSourceUrl(report.reportId);
+
+  return (
+    <section className={styles.pdfPreviewOverlay} aria-label="PDF preview">
+      <header>
+        <div>
+          <p>Uploaded file preview</p>
+          <h3>{report.requestDetails?.sourceFileName || report.url}</h3>
+        </div>
+        <div>
+          <a href={sourceUrl} rel="noreferrer" target="_blank">
+            Open in Browser
+          </a>
+          <button onClick={onClose} type="button" aria-label="Close">
+            x
+          </button>
+        </div>
+      </header>
+      <iframe src={sourceUrl} title="Uploaded PDF preview" />
+    </section>
   );
 }
 

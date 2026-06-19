@@ -5,6 +5,8 @@ const router = express.Router();
 
 router.post("/:requestId/generate", ReportController.generateReport);
 router.get("/request/:requestId", ReportController.getReportByRequestId);
+router.get("/:reportId/score-history", ReportController.getScoreHistory);
+router.get("/:reportId/source", ReportController.previewSourcePdf);
 router.get("/:reportId", ReportController.getReport);
 router.put("/:reportId/issue/:issueId", ReportController.updateIssueStatus);
 router.put("/:reportId/element/status", ReportController.updateElementStatus);

@@ -13,7 +13,10 @@ import {
   COUNTRY_REGULATIONS,
   COUNTRY_REGULATION_DISPLAY_NAMES,
   DEFAULT_COUNTRY_REGULATION,
+  PDF_CHECK_POINTS,
+  PDF_STANDARDS,
   REQUEST_TYPES,
+  SCREEN_READERS,
   TASK_TYPES,
   WCAG_VERSIONS,
   createDefaultWeightages,
@@ -21,24 +24,31 @@ import {
   getDynamicGuidelines,
   getRenderableGuidelines,
   getSelectedGuidelineIds,
+  getWcagVersionForPdfStandard,
   getWeightageTotal,
   groupGuidelinesByPrinciple,
   reconcileWeightages,
 } from "@/data/accessibilityConfig";
-import { accessibilityService, getApiErrorMessage } from "@/services/api";
+import {
+  accessibilityService,
+  getApiErrorMessage,
+  getVeraPdfStatusFromError,
+} from "@/services/api";
 import type {
   AccessibilityRequestPayload,
   CheckPoint,
   ComplianceType,
   CountryRegulation,
   GuidelineConfig,
+  PdfStandard,
   RequestType,
   SelectedGuideline,
+  VeraPdfStatus,
 } from "@/types/accessibility";
 import styles from "@styles/RequestForm.module.scss";
 
 type FormErrors = Partial<
-  Record<keyof AccessibilityRequestPayload | "submit", string>
+  Record<keyof AccessibilityRequestPayload | "pdfFile" | "submit", string>
 >;
 type DropdownId = "checkpoints" | "guidelines";
 
@@ -49,18 +59,17 @@ const initialForm: AccessibilityRequestPayload = {
   requestType: "Web",
   url: "",
   taskType: "Guidelines Check",
+  screenReader: "JAWS",
   complianceType: "WCAG Standards",
   wcagVersion: "2.2",
   countryRegulation: DEFAULT_COUNTRY_REGULATION,
   conformanceLevel: "AA",
+  pdfStandard: "PDF/UA (ISO 14289)",
+  passCriteriaPercentage: 50,
+  pdfMaxFailures: 100,
   checkPoints: CHECK_POINTS,
   guidelines: ["All"],
   successCriteriaWeightage: createDefaultWeightages(initialGuidelines),
-  scanScope: "Page",
-  maxPages: 10,
-  maxDepth: 2,
-  autoScroll: true,
-  includeSitemap: true,
 };
 
 const validateUrl = (url: string): string | undefined => {
@@ -80,9 +89,12 @@ const validateUrl = (url: string): string | undefined => {
   return undefined;
 };
 
-const summarizeCheckPoints = (value: CheckPoint[]): string => {
-  if (value.includes("All") || value.length === CHECK_POINTS.length) {
-    return `All (${CHECK_POINTS.length - 1})`;
+const summarizeCheckPoints = (
+  value: CheckPoint[],
+  availableCheckPoints: CheckPoint[],
+): string => {
+  if (value.includes("All") || value.length === availableCheckPoints.length) {
+    return `All (${availableCheckPoints.length - 1})`;
   }
 
   if (value.length === 0) {
@@ -115,18 +127,54 @@ const clampWeightage = (value: number): number => {
   return Math.min(100, Math.max(0, value));
 };
 
+const isSupportedPdfFile = (file: File): boolean => {
+  const fileName = file.name.toLowerCase();
+  const hasPdfExtension =
+    fileName.endsWith(".pdf") || fileName.endsWith(".pdfx");
+  const hasPdfMimeType =
+    !file.type ||
+    ["application/pdf", "application/octet-stream", "application/vnd.adobe.pdf"].includes(
+      file.type,
+    );
+
+  return hasPdfExtension && hasPdfMimeType;
+};
+
+const defaultVeraPdfStatus: VeraPdfStatus = {
+  available: false,
+  command: "verapdf",
+  downloadUrl: "https://verapdf.org/software/",
+  installUrl: "https://docs.verapdf.org/install/",
+  message:
+    "veraPDF is required before generating PDF reports. Download and install veraPDF, configure VERAPDF_COMMAND, then try again.",
+};
+
 function RequestForm(): JSX.Element {
   const navigate = useNavigate();
   const [form, setForm] = useState<AccessibilityRequestPayload>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generating, setGenerating] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [veraPdfStatus, setVeraPdfStatus] =
+    useState<VeraPdfStatus | null>(null);
   const checkPointDropdownRef = useRef<HTMLDetailsElement | null>(null);
   const guidelineDropdownRef = useRef<HTMLDetailsElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const isPdfRequest = form.requestType === "PDF";
+  const isScreenReaderTranscription =
+    !isPdfRequest && form.taskType === "Generate Screen Reader Transcription";
+  const availableCheckPoints = isPdfRequest ? PDF_CHECK_POINTS : CHECK_POINTS;
 
   const availableGuidelines = useMemo(
-    () => getDynamicGuidelines(form.wcagVersion, form.checkPoints),
-    [form.checkPoints, form.wcagVersion],
+    () =>
+      getDynamicGuidelines(
+        form.wcagVersion,
+        form.checkPoints,
+        form.requestType,
+      ),
+    [form.checkPoints, form.requestType, form.wcagVersion],
   );
 
   const selectedGuidelines = useMemo(
@@ -200,17 +248,78 @@ function RequestForm(): JSX.Element {
   };
 
   const handleRequestTypeChange = (requestType: RequestType) => {
-    patchForm({ requestType });
+    if (requestType === form.requestType) {
+      return;
+    }
+
+    const nextCheckPoints =
+      requestType === "PDF" ? PDF_CHECK_POINTS : CHECK_POINTS;
+    const nextWcagVersion =
+      requestType === "PDF"
+        ? getWcagVersionForPdfStandard(form.pdfStandard)
+        : form.wcagVersion;
+    const visibleGuidelines = getDynamicGuidelines(
+      nextWcagVersion,
+      nextCheckPoints,
+      requestType,
+    );
+
+    patchForm({
+      requestType,
+      url: "",
+      taskType: "Guidelines Check",
+      complianceType: "WCAG Standards",
+      wcagVersion: nextWcagVersion,
+      conformanceLevel: "AA",
+      countryRegulation: DEFAULT_COUNTRY_REGULATION,
+      checkPoints: nextCheckPoints,
+      guidelines: ["All"],
+      successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+    });
+
+    if (requestType !== "PDF") {
+      setPdfFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
-  const handleScanScopeChange = (
-    scanScope: AccessibilityRequestPayload["scanScope"],
-  ) => {
-    patchForm({
-      scanScope,
-      maxPages: scanScope === "Page" ? 1 : Math.max(form.maxPages, 2),
-      maxDepth: scanScope === "Page" ? 0 : Math.max(form.maxDepth, 1),
-    });
+  const handleTaskTypeChange = (taskType: AccessibilityRequestPayload["taskType"]) => {
+    if (form.requestType === "PDF") {
+      patchForm({ taskType: "Guidelines Check" });
+      return;
+    }
+
+    if (taskType === "Generate Screen Reader Transcription") {
+      patchForm({
+        taskType,
+        requestType: "Web",
+        screenReader: "JAWS",
+        checkPoints: CHECK_POINTS,
+        guidelines: [],
+        successCriteriaWeightage: {},
+      });
+      return;
+    }
+
+    if (taskType === "Guidelines Check") {
+      const visibleGuidelines = getDynamicGuidelines(
+        form.wcagVersion,
+        CHECK_POINTS,
+        "Web",
+      );
+
+      patchForm({
+        taskType,
+        checkPoints: CHECK_POINTS,
+        guidelines: ["All"],
+        successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+      });
+      return;
+    }
+
+    patchForm({ taskType });
   };
 
   const handleComplianceChange = (complianceType: ComplianceType) => {
@@ -278,6 +387,8 @@ function RequestForm(): JSX.Element {
 
   const handleCheckPointToggle = (checkpoint: CheckPoint) => {
     setForm((current) => {
+      const currentCheckPoints =
+        current.requestType === "PDF" ? PDF_CHECK_POINTS : CHECK_POINTS;
       const currentWithoutAll = current.checkPoints.filter(
         (item) => item !== "All",
       );
@@ -286,7 +397,7 @@ function RequestForm(): JSX.Element {
       if (checkpoint === "All") {
         nextCheckPoints = current.checkPoints.includes("All")
           ? []
-          : CHECK_POINTS;
+          : currentCheckPoints;
       } else if (currentWithoutAll.includes(checkpoint)) {
         nextCheckPoints = currentWithoutAll.filter(
           (item) => item !== checkpoint,
@@ -295,13 +406,14 @@ function RequestForm(): JSX.Element {
         nextCheckPoints = [...currentWithoutAll, checkpoint];
       }
 
-      if (nextCheckPoints.length === CHECK_POINTS.length - 1) {
-        nextCheckPoints = CHECK_POINTS;
+      if (nextCheckPoints.length === currentCheckPoints.length - 1) {
+        nextCheckPoints = currentCheckPoints;
       }
 
       const visibleGuidelines = getDynamicGuidelines(
         current.wcagVersion,
         nextCheckPoints,
+        current.requestType,
       );
 
       return {
@@ -311,6 +423,56 @@ function RequestForm(): JSX.Element {
         successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
       };
     });
+    setErrors((current) => ({
+      ...current,
+      checkPoints: "",
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
+  };
+
+  const selectAllCheckPoints = () => {
+    setForm((current) => {
+      const currentCheckPoints =
+        current.requestType === "PDF" ? PDF_CHECK_POINTS : CHECK_POINTS;
+
+      if (current.taskType === "Generate Screen Reader Transcription") {
+        return {
+          ...current,
+          checkPoints: currentCheckPoints,
+          guidelines: [],
+          successCriteriaWeightage: {},
+        };
+      }
+
+      const visibleGuidelines = getDynamicGuidelines(
+        current.wcagVersion,
+        currentCheckPoints,
+        current.requestType,
+      );
+
+      return {
+        ...current,
+        checkPoints: currentCheckPoints,
+        guidelines: ["All"],
+        successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+      };
+    });
+    setErrors((current) => ({
+      ...current,
+      checkPoints: "",
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
+  };
+
+  const deselectAllCheckPoints = () => {
+    setForm((current) => ({
+      ...current,
+      checkPoints: [],
+      guidelines: [],
+      successCriteriaWeightage: {},
+    }));
     setErrors((current) => ({
       ...current,
       checkPoints: "",
@@ -404,6 +566,7 @@ function RequestForm(): JSX.Element {
       const visibleGuidelines = getDynamicGuidelines(
         wcagVersion,
         current.checkPoints,
+        current.requestType,
       );
 
       return {
@@ -413,6 +576,34 @@ function RequestForm(): JSX.Element {
         successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
       };
     });
+  };
+
+  const handlePdfStandardChange = (pdfStandard: PdfStandard) => {
+    setForm((current) => {
+      const wcagVersion = getWcagVersionForPdfStandard(pdfStandard);
+      const visibleGuidelines = getDynamicGuidelines(
+        wcagVersion,
+        current.checkPoints,
+        "PDF",
+      );
+
+      return {
+        ...current,
+        pdfStandard,
+        wcagVersion,
+        complianceType: "WCAG Standards",
+        conformanceLevel: "AA",
+        guidelines: ["All"],
+        successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+      };
+    });
+    setErrors((current) => ({
+      ...current,
+      pdfStandard: "",
+      wcagVersion: "",
+      guidelines: "",
+      successCriteriaWeightage: "",
+    }));
   };
 
   const handleWeightageChange = (guidelineId: string, value: number) => {
@@ -446,12 +637,30 @@ function RequestForm(): JSX.Element {
     });
   };
 
+  const handlePdfFileChange = (file: File | null) => {
+    setPdfFile(file);
+    setErrors((current) => ({ ...current, pdfFile: "" }));
+
+    if (file?.name && !form.requestName?.trim()) {
+      patchForm({ requestName: file.name.replace(/\.(pdf|pdfx)$/i, "") });
+    }
+  };
+
   const validateForm = (): boolean => {
     const nextErrors: FormErrors = {};
-    const urlError = validateUrl(form.url);
 
-    if (urlError) {
-      nextErrors.url = urlError;
+    if (isPdfRequest) {
+      if (!pdfFile) {
+        nextErrors.pdfFile = "PDF file is required";
+      } else if (!isSupportedPdfFile(pdfFile)) {
+        nextErrors.pdfFile = "Only PDF and PDF/X files are supported";
+      }
+    } else {
+      const urlError = validateUrl(form.url);
+
+      if (urlError) {
+        nextErrors.url = urlError;
+      }
     }
 
     if (
@@ -469,19 +678,47 @@ function RequestForm(): JSX.Element {
         "Total weightage must be greater than 0 and no more than 100";
     }
 
-    if (
-      form.scanScope === "Site" &&
-      (form.maxPages < 1 || form.maxPages > 50)
-    ) {
-      nextErrors.maxPages = "Max pages must be between 1 and 50";
+    if (isScreenReaderTranscription && form.checkPoints.length === 0) {
+      nextErrors.checkPoints = "At least one checkpoint is required";
     }
 
-    if (form.scanScope === "Site" && (form.maxDepth < 0 || form.maxDepth > 5)) {
-      nextErrors.maxDepth = "Max depth must be between 0 and 5";
+    if (isScreenReaderTranscription && form.screenReader !== "JAWS") {
+      nextErrors.screenReader = "JAWS is the supported screen reader for this POC";
     }
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
+  };
+
+  const showVeraPdfPopup = (status?: VeraPdfStatus) => {
+    setVeraPdfStatus(status ?? defaultVeraPdfStatus);
+  };
+
+  const verifyVeraPdfBeforePdfReport = async (): Promise<boolean> => {
+    if (!isPdfRequest) {
+      return true;
+    }
+
+    try {
+      const response = await accessibilityService.getVeraPdfStatus();
+      const status = response.data.veraPdf;
+
+      if (!status.available) {
+        showVeraPdfPopup(status);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      const status = getVeraPdfStatusFromError(error);
+
+      if (status) {
+        showVeraPdfPopup(status);
+        return false;
+      }
+
+      throw error;
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -495,33 +732,65 @@ function RequestForm(): JSX.Element {
     setErrors({});
 
     try {
+      if (!(await verifyVeraPdfBeforePdfReport())) {
+        return;
+      }
+
       const payload: AccessibilityRequestPayload = {
         ...form,
+        requestType: isScreenReaderTranscription ? "Web" : form.requestType,
+        url: isPdfRequest ? pdfFile?.name || "" : form.url.trim(),
+        screenReader: isScreenReaderTranscription ? "JAWS" : undefined,
         requestName: form.requestName?.trim() || undefined,
         wcagVersion:
-          form.complianceType === "Country Regulations"
+          form.requestType === "PDF"
+            ? getWcagVersionForPdfStandard(
+                form.pdfStandard ?? "PDF/UA (ISO 14289)",
+              )
+            : form.complianceType === "Country Regulations"
             ? countryAlignment.wcagVersion
             : form.wcagVersion,
         conformanceLevel:
-          form.complianceType === "Country Regulations"
+          form.requestType === "PDF"
+            ? "AA"
+            : form.complianceType === "Country Regulations"
             ? countryAlignment.conformanceLevel
             : form.conformanceLevel,
-        guidelines: form.guidelines.includes("All")
-          ? ["All"]
-          : selectedGuidelineIds,
+        guidelines: isScreenReaderTranscription
+          ? []
+          : form.guidelines.includes("All")
+            ? ["All"]
+            : selectedGuidelineIds,
+        successCriteriaWeightage: isScreenReaderTranscription
+          ? {}
+          : form.successCriteriaWeightage,
         countryRegulation:
-          form.complianceType === "Country Regulations"
+          !isPdfRequest && form.complianceType === "Country Regulations"
             ? (form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION)
             : undefined,
+        pdfMaxFailures: isPdfRequest ? form.pdfMaxFailures ?? 100 : undefined,
+        sourceFileName: isPdfRequest ? pdfFile?.name : undefined,
+        sourceFileSize: isPdfRequest ? pdfFile?.size : undefined,
+        sourceFileMimeType: isPdfRequest ? pdfFile?.type : undefined,
       };
 
-      const requestResponse = await accessibilityService.createRequest(payload);
+      const requestResponse =
+        isPdfRequest && pdfFile
+          ? await accessibilityService.createPdfRequest(payload, pdfFile)
+          : await accessibilityService.createRequest(payload);
       const reportResponse = await accessibilityService.generateReport(
         requestResponse.data.request.requestId,
       );
 
       navigate(`/report/${reportResponse.data.report.reportId}`);
     } catch (error) {
+      const veraPdfError = getVeraPdfStatusFromError(error);
+
+      if (veraPdfError) {
+        showVeraPdfPopup(veraPdfError);
+        return;
+      }
+
       setErrors({
         submit: getApiErrorMessage(
           error,
@@ -554,7 +823,7 @@ function RequestForm(): JSX.Element {
         </div>
       </header>
 
-      <form className={styles.formShell} onSubmit={handleSubmit}>
+      <form className={styles.formShell} onSubmit={handleSubmit} ref={formRef}>
         {errors.submit ? (
           <div className={styles.errorBanner}>{errors.submit}</div>
         ) : null}
@@ -578,126 +847,189 @@ function RequestForm(): JSX.Element {
           ))}
         </div>
 
-        <div className={styles.fieldGrid}>
-          <Field label="Request Name">
-            <input
-              onChange={(event) =>
-                patchForm({ requestName: event.target.value })
-              }
-              placeholder="Homepage audit"
-              type="text"
-              value={form.requestName ?? ""}
-            />
-          </Field>
+        {isPdfRequest ? (
+          <>
+            <div className={`${styles.fieldGrid} ${styles.pdfFieldGrid}`}>
+              <Field label="Request Name">
+                <input
+                  onChange={(event) =>
+                    patchForm({ requestName: event.target.value })
+                  }
+                  placeholder="Quarterly PDF audit"
+                  type="text"
+                  value={form.requestName ?? ""}
+                />
+              </Field>
 
-          <Field label="URL" required error={errors.url}>
-            <input
-              aria-invalid={Boolean(errors.url)}
-              onChange={(event) => patchForm({ url: event.target.value })}
-              placeholder="https://example.com"
-              type="url"
-              value={form.url}
-            />
-          </Field>
-
-          <Field label="Accessibility Task Type" required>
-            <select
-              onChange={(event) =>
-                patchForm({
-                  taskType: event.target
-                    .value as AccessibilityRequestPayload["taskType"],
-                })
-              }
-              value={form.taskType}
-            >
-              {TASK_TYPES.map((taskType) => (
-                <option key={taskType} value={taskType}>
-                  {taskType}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <section className={styles.scanCoveragePanel}>
-          <header>
-            <h3>Scan Coverage</h3>
-            <span>{form.scanScope === "Site" ? "Site" : "Page"}</span>
-          </header>
-          <div className={styles.coverageGrid}>
-            <div
-              className={styles.segmentedControl}
-              role="radiogroup"
-              aria-label="Scan scope"
-            >
-              {(
-                ["Page", "Site"] as AccessibilityRequestPayload["scanScope"][]
-              ).map((scope) => (
-                <button
-                  aria-checked={form.scanScope === scope}
-                  className={form.scanScope === scope ? styles.active : ""}
-                  key={scope}
-                  onClick={() => handleScanScopeChange(scope)}
-                  role="radio"
-                  type="button"
+              <Field label="Comparison Type" required>
+                <select
+                  onChange={(event) =>
+                    handleTaskTypeChange(
+                      event.target
+                        .value as AccessibilityRequestPayload["taskType"],
+                    )
+                  }
+                  value={form.taskType}
                 >
-                  {scope}
-                </button>
-              ))}
+                  <option value="Guidelines Check">Guidelines Check</option>
+                </select>
+              </Field>
+
+              <Field label="Standards" required>
+                <select
+                  onChange={(event) =>
+                    handlePdfStandardChange(event.target.value as PdfStandard)
+                  }
+                  value={form.pdfStandard ?? "PDF/UA (ISO 14289)"}
+                >
+                  {PDF_STANDARDS.map((standard) => (
+                    <option key={standard} value={standard}>
+                      {standard}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Criteria" required error={errors.checkPoints}>
+                <details
+                  className={styles.multiSelect}
+                  open={openDropdown === "checkpoints"}
+                  ref={checkPointDropdownRef}
+                >
+                  <summary
+                    aria-expanded={openDropdown === "checkpoints"}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      toggleDropdown("checkpoints");
+                    }}
+                  >
+                    {summarizeCheckPoints(form.checkPoints, availableCheckPoints)}
+                  </summary>
+                  <div className={styles.optionPanel}>
+                    <div className={styles.optionActions}>
+                      <button onClick={selectAllCheckPoints} type="button">
+                        Select All
+                      </button>
+                      <button onClick={deselectAllCheckPoints} type="button">
+                        Deselect All
+                      </button>
+                    </div>
+                    {availableCheckPoints.map((checkpoint) => (
+                      <label key={checkpoint}>
+                        <input
+                          checked={
+                            checkpoint === "All"
+                              ? form.checkPoints.includes("All")
+                              : form.checkPoints.includes("All") ||
+                                form.checkPoints.includes(checkpoint)
+                          }
+                          onChange={() => handleCheckPointToggle(checkpoint)}
+                          type="checkbox"
+                        />
+                        <span>{checkpoint}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              </Field>
+
+              <Field label="Pass Criteria %" required>
+                <input
+                  max={100}
+                  min={0}
+                  onChange={(event) =>
+                    patchForm({
+                      passCriteriaPercentage: clampWeightage(
+                        Number(event.target.value),
+                      ),
+                    })
+                  }
+                  type="number"
+                  value={form.passCriteriaPercentage ?? 50}
+                />
+              </Field>
+
+              <Field label="Max Failures" required>
+                <input
+                  min={1}
+                  onChange={(event) =>
+                    patchForm({
+                      pdfMaxFailures: Math.max(
+                        1,
+                        Math.trunc(Number(event.target.value) || 1),
+                      ),
+                    })
+                  }
+                  type="number"
+                  value={form.pdfMaxFailures ?? 100}
+                />
+              </Field>
             </div>
 
-            <Field label="Max Pages" error={errors.maxPages}>
+            <section className={styles.pdfUploadPanel}>
+              <Field label="PDF File" required error={errors.pdfFile}>
+                <input
+                  accept="application/pdf,.pdf,.pdfx"
+                  aria-invalid={Boolean(errors.pdfFile)}
+                  onChange={(event) =>
+                    handlePdfFileChange(event.target.files?.[0] ?? null)
+                  }
+                  ref={fileInputRef}
+                  type="file"
+                />
+              </Field>
+              {pdfFile ? (
+                <div className={styles.fileSummary}>
+                  <strong>{pdfFile.name}</strong>
+                  <span>{(pdfFile.size / 1024).toFixed(1)} KB</span>
+                </div>
+              ) : null}
+            </section>
+          </>
+        ) : (
+          <div className={styles.fieldGrid}>
+            <Field label="Request Name">
               <input
-                disabled={form.scanScope === "Page"}
-                max={50}
-                min={1}
                 onChange={(event) =>
-                  patchForm({ maxPages: Number(event.target.value) || 1 })
+                  patchForm({ requestName: event.target.value })
                 }
-                type="number"
-                value={form.scanScope === "Page" ? 1 : form.maxPages}
+                placeholder="Homepage audit"
+                type="text"
+                value={form.requestName ?? ""}
               />
             </Field>
 
-            <Field label="Max Depth" error={errors.maxDepth}>
+            <Field label="URL" required error={errors.url}>
               <input
-                disabled={form.scanScope === "Page"}
-                max={5}
-                min={0}
-                onChange={(event) =>
-                  patchForm({ maxDepth: Number(event.target.value) || 0 })
-                }
-                type="number"
-                value={form.scanScope === "Page" ? 0 : form.maxDepth}
+                aria-invalid={Boolean(errors.url)}
+                onChange={(event) => patchForm({ url: event.target.value })}
+                placeholder="https://example.com"
+                type="url"
+                value={form.url}
               />
             </Field>
 
-            <label className={styles.toggleField}>
-              <input
-                checked={form.autoScroll}
+            <Field label="Accessibility Task Type" required>
+              <select
                 onChange={(event) =>
-                  patchForm({ autoScroll: event.target.checked })
+                  handleTaskTypeChange(
+                    event.target
+                      .value as AccessibilityRequestPayload["taskType"],
+                  )
                 }
-                type="checkbox"
-              />
-              <span>Auto-scroll</span>
-            </label>
-
-            <label className={styles.toggleField}>
-              <input
-                checked={form.includeSitemap}
-                disabled={form.scanScope === "Page"}
-                onChange={(event) =>
-                  patchForm({ includeSitemap: event.target.checked })
-                }
-                type="checkbox"
-              />
-              <span>Sitemap</span>
-            </label>
+                value={form.taskType}
+              >
+                {TASK_TYPES.map((taskType) => (
+                  <option key={taskType} value={taskType}>
+                    {taskType}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
-        </section>
+        )}
 
-        {form.taskType === "Guidelines Check" ? (
+        {!isPdfRequest && form.taskType === "Guidelines Check" ? (
           <>
             <div className={styles.fieldGrid}>
               <Field label="Accessibility Check Points" required>
@@ -713,10 +1045,18 @@ function RequestForm(): JSX.Element {
                       toggleDropdown("checkpoints");
                     }}
                   >
-                    {summarizeCheckPoints(form.checkPoints)}
+                    {summarizeCheckPoints(form.checkPoints, availableCheckPoints)}
                   </summary>
                   <div className={styles.optionPanel}>
-                    {CHECK_POINTS.map((checkpoint) => (
+                    <div className={styles.optionActions}>
+                      <button onClick={selectAllCheckPoints} type="button">
+                        Select All
+                      </button>
+                      <button onClick={deselectAllCheckPoints} type="button">
+                        Deselect All
+                      </button>
+                    </div>
+                    {availableCheckPoints.map((checkpoint) => (
                       <label key={checkpoint}>
                         <input
                           checked={
@@ -848,6 +1188,14 @@ function RequestForm(): JSX.Element {
                       )}
                     </summary>
                     <div className={styles.optionPanel}>
+                      <div className={styles.optionActions}>
+                        <button onClick={selectAllGuidelines} type="button">
+                          Select All
+                        </button>
+                        <button onClick={deselectAllGuidelines} type="button">
+                          Deselect All
+                        </button>
+                      </div>
                       <label>
                         <input
                           checked={form.guidelines.includes("All")}
@@ -951,6 +1299,69 @@ function RequestForm(): JSX.Element {
               </div>
             </section>
           </>
+        ) : isScreenReaderTranscription ? (
+          <div className={styles.fieldGrid}>
+            <Field label="Accessibility Check Points" required error={errors.checkPoints}>
+              <details
+                className={styles.multiSelect}
+                open={openDropdown === "checkpoints"}
+                ref={checkPointDropdownRef}
+              >
+                <summary
+                  aria-expanded={openDropdown === "checkpoints"}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    toggleDropdown("checkpoints");
+                  }}
+                >
+                  {summarizeCheckPoints(form.checkPoints, availableCheckPoints)}
+                </summary>
+                <div className={styles.optionPanel}>
+                  <div className={styles.optionActions}>
+                    <button onClick={selectAllCheckPoints} type="button">
+                      Select All
+                    </button>
+                    <button onClick={deselectAllCheckPoints} type="button">
+                      Deselect All
+                    </button>
+                  </div>
+                  {availableCheckPoints.map((checkpoint) => (
+                    <label key={checkpoint}>
+                      <input
+                        checked={
+                          checkpoint === "All"
+                            ? form.checkPoints.includes("All")
+                            : form.checkPoints.includes("All") ||
+                              form.checkPoints.includes(checkpoint)
+                        }
+                        onChange={() => handleCheckPointToggle(checkpoint)}
+                        type="checkbox"
+                      />
+                      <span>{checkpoint}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
+            </Field>
+
+            <Field label="Screen Reader" required error={errors.screenReader}>
+              <select
+                onChange={(event) =>
+                  patchForm({
+                    screenReader:
+                      event.target.value as AccessibilityRequestPayload["screenReader"],
+                  })
+                }
+                value={form.screenReader ?? "JAWS"}
+              >
+                {SCREEN_READERS.map((screenReader) => (
+                  <option key={screenReader} value={screenReader}>
+                    {screenReader}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
         ) : (
           <div className={styles.pendingMode}>
             {form.taskType} is configured as a request type and can be saved for
@@ -964,6 +1375,71 @@ function RequestForm(): JSX.Element {
           </button>
         </footer>
       </form>
+
+      {veraPdfStatus ? (
+        <div className={styles.modalBackdrop} role="presentation">
+          <aside
+            aria-labelledby="vera-pdf-title"
+            aria-modal="true"
+            className={styles.veraPdfModal}
+            role="dialog"
+          >
+            <header>
+              <div>
+                <p>PDF validation dependency</p>
+                <h3 id="vera-pdf-title">veraPDF is not installed</h3>
+              </div>
+              <button
+                aria-label="Close"
+                onClick={() => setVeraPdfStatus(null)}
+                type="button"
+              >
+                x
+              </button>
+            </header>
+
+            <p>{veraPdfStatus.message}</p>
+            <dl>
+              <div>
+                <dt>Expected command</dt>
+                <dd>{veraPdfStatus.command}</dd>
+              </div>
+              {veraPdfStatus.error ? (
+                <div>
+                  <dt>System response</dt>
+                  <dd>{veraPdfStatus.error}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            <footer>
+              <a
+                href={veraPdfStatus.downloadUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Download veraPDF
+              </a>
+              <a
+                href={veraPdfStatus.installUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Installation Guide
+              </a>
+              <button
+                onClick={() => {
+                  setVeraPdfStatus(null);
+                  window.setTimeout(() => formRef.current?.requestSubmit(), 0);
+                }}
+                type="button"
+              >
+                Retry Generate
+              </button>
+            </footer>
+          </aside>
+        </div>
+      ) : null}
     </section>
   );
 }

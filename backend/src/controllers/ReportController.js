@@ -1,10 +1,23 @@
 const AccessibilityTester = require("../services/AccessibilityTester");
 const AccessibilityStore = require("../services/AccessibilityStore");
 const ScoreCalculator = require("../services/ScoreCalculator");
+const ScreenReaderTranscriber = require("../services/ScreenReaderTranscriber");
+const PdfAccessibilityTester = require("../services/PdfAccessibilityTester");
+const fs = require("fs");
+const path = require("path");
+const { chromium } = require("playwright");
 const {
   wcagStandards,
   getSuccessCriteriaForVersion,
 } = require("../config/wcagStandards");
+
+const GUIDELINE_SCAN_OPTIONS = {
+  scanScope: "Page",
+  maxPages: 1,
+  maxDepth: 0,
+  autoScroll: true,
+  includeSitemap: false,
+};
 
 class ReportController {
   static async generateReport(req, res) {
@@ -16,23 +29,129 @@ class ReportController {
         return res.status(404).json({ error: "Request not found" });
       }
 
+      if (request.requestType === "PDF") {
+        const veraPdfStatus = await PdfAccessibilityTester.getVeraPdfStatus();
+
+        if (!veraPdfStatus.available) {
+          return res.status(409).json({
+            error: veraPdfStatus.message,
+            code: "VERAPDF_NOT_INSTALLED",
+            veraPdf: veraPdfStatus,
+          });
+        }
+      }
+
       await AccessibilityStore.updateRequest(requestId, { status: "Running" });
       const startTime = Date.now();
 
       try {
+        if (request.taskType === "Generate Screen Reader Transcription") {
+          const transcription = await ScreenReaderTranscriber.generate({
+            url: request.url,
+            screenReader: request.screenReader || "JAWS",
+            checkPoints: request.checkPoints,
+          });
+          const generationTime = Date.now() - startTime;
+          const report = await AccessibilityStore.createReport({
+            requestId,
+            requestName: request.requestName,
+            url: request.url,
+            wcagVersion: request.wcagVersion || "2.2",
+            conformanceLevel: request.conformanceLevel || "AA",
+            complianceType: request.complianceType,
+            countryRegulation: request.countryRegulation,
+            requestDetails: request,
+            transcription,
+            scannedPages: [
+              {
+                url: transcription.url,
+                depth: 0,
+                title: transcription.pageTitle,
+                status: "Transcribed",
+                statusCode: 200,
+                issueCount: 0,
+                error: null,
+              },
+            ],
+            generationTime,
+            reportSize: JSON.stringify(transcription).length,
+            accessibilityScore: 0,
+            scoreBreakdown: null,
+            scoreHistory: [],
+            summary: ReportController.createSummary([]),
+            issueSeverityCount: ReportController.createSeverityCount([]),
+            issues: [],
+            principles: [],
+          });
+
+          await AccessibilityStore.updateRequest(requestId, { status: "Completed" });
+
+          return res.status(201).json({
+            success: true,
+            report: ReportController.toReportResponse(report),
+            message: "Screen reader transcription generated successfully",
+          });
+        }
+
+        if (request.requestType === "PDF") {
+          const scanResult = await PdfAccessibilityTester.runPdfScan({
+            filePath: request.sourceFilePath,
+            fileName: request.sourceFileName || request.url,
+            pdfStandard: request.pdfStandard || "PDF/UA (ISO 14289)",
+            wcagVersion: request.wcagVersion || "2.2",
+            conformanceLevel: request.conformanceLevel || "AA",
+            checkPoints: request.checkPoints,
+            selectedGuidelines: request.guidelines,
+            pdfMaxFailures: request.pdfMaxFailures,
+          });
+          const issues = scanResult.issues;
+          const generationTime = Date.now() - startTime;
+          const scoreResult = ScoreCalculator.calculate({
+            wcagVersion: request.wcagVersion || "2.2",
+            requestDetails: request,
+            issues,
+          });
+          const report = await AccessibilityStore.createReport({
+            requestId,
+            requestName: request.requestName,
+            url: request.sourceFileName || request.url,
+            wcagVersion: request.wcagVersion || "2.2",
+            conformanceLevel: request.conformanceLevel || "AA",
+            complianceType: request.complianceType,
+            countryRegulation: request.countryRegulation,
+            requestDetails: request,
+            pdfValidation: scanResult.pdfValidation,
+            scannedPages: scanResult.scannedPages,
+            generationTime,
+            reportSize: JSON.stringify(issues).length,
+            accessibilityScore: scoreResult.accessibilityScore,
+            scoreBreakdown: scoreResult.scoreBreakdown,
+            scoreHistory: [],
+            summary: ReportController.createSummary(issues),
+            issueSeverityCount: ReportController.createSeverityCount(issues),
+            issues,
+            principles: ReportController.organizePrinciples(
+              issues,
+              request.wcagVersion || "2.2",
+            ),
+          });
+
+          await AccessibilityStore.updateRequest(requestId, { status: "Completed" });
+
+          return res.status(201).json({
+            success: true,
+            report: ReportController.toReportResponse(report),
+            message: "PDF accessibility report generated successfully",
+          });
+        }
+
         const scanResult = await AccessibilityTester.runAccessibilityScan(
           request.url,
           request.conformanceLevel,
           request.wcagVersion,
           request.checkPoints,
           request.guidelines,
-          {
-            scanScope: request.scanScope,
-            maxPages: request.maxPages,
-            maxDepth: request.maxDepth,
-            autoScroll: request.autoScroll,
-            includeSitemap: request.includeSitemap,
-          },
+          GUIDELINE_SCAN_OPTIONS,
         );
         const issues = scanResult.issues;
 
@@ -52,9 +171,7 @@ class ReportController {
           complianceType: request.complianceType,
           countryRegulation: request.countryRegulation,
           requestDetails: request,
-          scanScope: scanResult.crawlSummary.scanScope,
           scannedPages: scanResult.scannedPages,
-          crawlSummary: scanResult.crawlSummary,
           generationTime,
           reportSize: JSON.stringify(issues).length,
           accessibilityScore: scoreResult.accessibilityScore,
@@ -73,7 +190,7 @@ class ReportController {
 
         res.status(201).json({
           success: true,
-          report,
+          report: ReportController.toReportResponse(report),
           message: "Report generated successfully",
         });
       } catch (testError) {
@@ -94,7 +211,7 @@ class ReportController {
         return res.status(404).json({ error: "Report not found" });
       }
 
-      res.json(report);
+      res.json(ReportController.toReportResponse(report));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -109,7 +226,75 @@ class ReportController {
         return res.status(404).json({ error: "Report not found" });
       }
 
-      res.json(report);
+      res.json(ReportController.toReportResponse(report));
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async getScoreHistory(req, res) {
+    try {
+      const { reportId } = req.params;
+      const report = await AccessibilityStore.findReport(reportId);
+
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      res.json({
+        success: true,
+        reportId: report.reportId,
+        requestId: report.requestId,
+        scoreHistory: report.scoreHistory || [],
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async previewSourcePdf(req, res) {
+    try {
+      const { reportId } = req.params;
+      const report = await AccessibilityStore.findReport(reportId);
+
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      if (report.requestDetails?.requestType !== "PDF") {
+        return res.status(400).json({ error: "Source preview is available for PDF reports only" });
+      }
+
+      const sourceFilePath = report.requestDetails?.sourceFilePath;
+
+      if (!sourceFilePath) {
+        return res.status(404).json({ error: "Source PDF path not found" });
+      }
+
+      const uploadsRoot = path.resolve(__dirname, "../../uploads");
+      const resolvedPath = path.resolve(sourceFilePath);
+      const relativeToUploads = path.relative(uploadsRoot, resolvedPath);
+
+      if (
+        relativeToUploads.startsWith("..") ||
+        path.isAbsolute(relativeToUploads)
+      ) {
+        return res.status(403).json({ error: "Source PDF path is outside the upload directory" });
+      }
+
+      if (!fs.existsSync(resolvedPath)) {
+        return res.status(404).json({ error: "Source PDF file not found" });
+      }
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${ReportController.sanitizeFileName(
+          String(report.requestDetails?.sourceFileName || report.url || "source").replace(/\.pdf$/i, ""),
+        )}.pdf"`,
+      );
+
+      return fs.createReadStream(resolvedPath).pipe(res);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -334,7 +519,7 @@ class ReportController {
         success: true,
         message: "Issue status updated successfully",
         issue,
-        report,
+        report: ReportController.toReportResponse(report),
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -396,7 +581,7 @@ class ReportController {
         success: true,
         message: "Element status updated successfully",
         element,
-        report,
+        report: ReportController.toReportResponse(report),
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -406,31 +591,86 @@ class ReportController {
   static async downloadReport(req, res) {
     try {
       const { reportId } = req.params;
+      const format = String(req.query.format || "html").toLowerCase();
       const report = await AccessibilityStore.findReport(reportId);
 
       if (!report) {
         return res.status(404).json({ error: "Report not found" });
       }
 
-      const htmlReport = ReportController.generateHTMLReport(report);
+      const htmlReport = report.transcription
+        ? ReportController.generateTranscriptionHTMLReport(report)
+        : ReportController.generateHTMLReport(report);
+
+      if (format === "pdf") {
+        const pdfReport = await ReportController.renderHtmlToPdf(htmlReport);
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${ReportController.createDownloadFileName(
+            report,
+            "pdf",
+          )}"`,
+        );
+        return res.send(pdfReport);
+      }
 
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="${ReportController.createDownloadFileName(
           report,
+          "html",
         )}"`,
       );
-      res.send(htmlReport);
+      return res.send(htmlReport);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
 
-  static createDownloadFileName(report) {
+  static async renderHtmlToPdf(htmlReport) {
+    let browser;
+
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+
+      await page.setContent(htmlReport, { waitUntil: "load" });
+
+      const pdfReport = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        margin: {
+          top: "16mm",
+          right: "12mm",
+          bottom: "16mm",
+          left: "12mm",
+        },
+      });
+
+      return pdfReport;
+    } finally {
+      if (browser) {
+        await browser.close().catch(() => {});
+      }
+    }
+  }
+
+  static createDownloadFileName(report, format = "html") {
+    const suffix = report.transcription
+      ? "JawsTranscription"
+      : report.requestDetails?.requestType === "PDF"
+        ? "PdfAccessibilityReport"
+        : "Report";
+
     return `${ReportController.sanitizeFileName(
       ReportController.getRequestName(report),
-    )}Report.html`;
+    )}${suffix}.${format}`;
   }
 
   static getRequestName(report) {
@@ -588,6 +828,38 @@ class ReportController {
         `,
       )
       .join("");
+
+    const pdfValidationRows = report.pdfValidation
+      ? [
+          ["Tool", report.pdfValidation.tool || "veraPDF"],
+          [
+            "Tool Available",
+            report.pdfValidation.toolAvailable === false ? "No" : "Yes",
+          ],
+          ["Standard", report.pdfValidation.standard || "PDF/UA (ISO 14289)"],
+          [
+            "Compliant",
+            report.pdfValidation.isCompliant === null ||
+            report.pdfValidation.isCompliant === undefined
+              ? "Unknown"
+              : report.pdfValidation.isCompliant
+                ? "Yes"
+                : "No",
+          ],
+          ["Failed Checks", (report.pdfValidation.failedChecks || []).length],
+          ["Error", report.pdfValidation.error || ""],
+        ]
+          .filter(([, value]) => value !== "")
+          .map(
+            ([label, value]) => `
+              <tr>
+                <th>${escapeHtml(label)}</th>
+                <td>${escapeHtml(value)}</td>
+              </tr>
+            `,
+          )
+          .join("")
+      : "";
 
     const guidelineHtml = (report.principles || [])
       .map((principle) => {
@@ -846,9 +1118,6 @@ class ReportController {
                 <tr><th>Request Name</th><td>${escapeHtml(requestName)}</td></tr>
                 <tr><th>URL</th><td>${escapeHtml(report.url)}</td></tr>
                 <tr><th>Compliance</th><td>${escapeHtml(standardLabel)}</td></tr>
-                <tr><th>Scan Scope</th><td>${escapeHtml(
-                  report.scanScope || report.requestDetails?.scanScope || "Page",
-                )}</td></tr>
                 <tr><th>Pages Scanned</th><td>${escapeHtml(
                   scannedPages.length || 1,
                 )}</td></tr>
@@ -873,6 +1142,16 @@ class ReportController {
               <thead><tr><th>URL</th><th>Status</th><th>HTTP</th><th>Issues</th></tr></thead>
               <tbody>${scannedPageRows || '<tr><td colspan="4">No scanned page data.</td></tr>'}</tbody>
             </table>
+            ${
+              pdfValidationRows
+                ? `
+                  <h2>PDF Validation</h2>
+                  <table>
+                    <tbody>${pdfValidationRows}</tbody>
+                  </table>
+                `
+                : ""
+            }
           </section>
         </main>
 
@@ -889,6 +1168,111 @@ class ReportController {
       </body>
       </html>
     `;
+  }
+
+  static generateTranscriptionHTMLReport(report) {
+    const requestName = ReportController.getRequestName(report);
+    const transcription = report.transcription || {};
+    const sectionHtml = (transcription.sections || [])
+      .map(
+        (section) => `
+          <section class="card">
+            <h2>${escapeHtml(section.checkpoint)}</h2>
+            <ul>
+              ${(section.lines || [])
+                .map((line) => `<li>${escapeHtml(line)}</li>`)
+                .join("")}
+            </ul>
+          </section>
+        `,
+      )
+      .join("");
+
+    const notesHtml = (transcription.notes || [])
+      .map((note) => `<li>${escapeHtml(note)}</li>`)
+      .join("");
+
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${escapeHtml(requestName)} JAWS Transcription</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { background: #f6f8fb; color: #202734; font-family: Arial, sans-serif; margin: 0; padding: 24px; }
+          .header, .card { background: #ffffff; border: 1px solid #dfe3ea; border-radius: 8px; }
+          .header { display: flex; gap: 16px; justify-content: space-between; margin-bottom: 14px; padding: 18px; }
+          .url { overflow-wrap: anywhere; }
+          .metrics { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+          .metric { background: #f6f8fb; border: 1px solid #dfe3ea; border-radius: 6px; display: grid; gap: 2px; min-width: 120px; padding: 7px 10px; }
+          .metric small { color: #667085; font-size: 11px; }
+          .metric strong { font-size: 13px; }
+          .card { display: grid; gap: 10px; margin-bottom: 12px; padding: 16px; }
+          h1, h2 { margin: 0; }
+          h1 { font-size: 22px; }
+          h2 { font-size: 15px; }
+          pre { background: #fbfcfe; border: 1px solid #eef1f6; border-radius: 6px; font-size: 13px; line-height: 1.55; overflow: auto; padding: 12px; white-space: pre-wrap; }
+          ul { color: #4b5563; line-height: 1.45; margin: 0; padding-left: 18px; }
+        </style>
+      </head>
+      <body>
+        <section class="header">
+          <div>
+            <h1>${escapeHtml(requestName)} JAWS Transcription</h1>
+            <p class="url">${escapeHtml(transcription.url || report.url)}</p>
+            <p>Generated from selected checkpoints for ${escapeHtml(
+              transcription.screenReader || "JAWS",
+            )}.</p>
+          </div>
+          <div class="metrics">
+            <span class="metric"><small>Screen Reader</small><strong>${escapeHtml(
+              transcription.screenReader || "JAWS",
+            )}</strong></span>
+            <span class="metric"><small>Mode</small><strong>${escapeHtml(
+              transcription.mode || "semantic-fallback",
+            )}</strong></span>
+            <span class="metric"><small>Lines</small><strong>${escapeHtml(
+              transcription.stats?.lines || 0,
+            )}</strong></span>
+            <span class="metric"><small>Words</small><strong>${escapeHtml(
+              transcription.stats?.words || 0,
+            )}</strong></span>
+            <span class="metric"><small>Generation Time</small><strong>${ReportController.formatDuration(
+              report.generationTime,
+            )}</strong></span>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Traversal Transcript</h2>
+          <pre>${escapeHtml(transcription.actualContent || "")}</pre>
+        </section>
+
+        ${sectionHtml || '<section class="card"><p>No transcription sections found.</p></section>'}
+
+        ${
+          notesHtml
+            ? `<section class="card"><h2>Notes</h2><ul>${notesHtml}</ul></section>`
+            : ""
+        }
+      </body>
+      </html>
+    `;
+  }
+
+  static toReportResponse(report) {
+    if (!report) {
+      return report;
+    }
+
+    const reportResponse = JSON.parse(JSON.stringify(report));
+    delete reportResponse.crawlSummary;
+    delete reportResponse.scoreHistory;
+    delete reportResponse.scanScope;
+
+    return reportResponse;
   }
 }
 

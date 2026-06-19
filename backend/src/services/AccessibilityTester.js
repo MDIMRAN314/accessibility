@@ -17,10 +17,10 @@ const EnginePriority = require("./EnginePriority");
 
 const DEFAULT_SCAN_OPTIONS = {
   scanScope: "Page",
-  maxPages: 10,
-  maxDepth: 2,
+  maxPages: 1,
+  maxDepth: 0,
   autoScroll: true,
-  includeSitemap: true,
+  includeSitemap: false,
 };
 
 const SKIPPED_EXTENSIONS = new Set([
@@ -240,28 +240,8 @@ class AccessibilityTester {
     }
   }
 
-  static normalizeScanOptions(scanOptions = {}) {
-    const scanScope = scanOptions.scanScope === "Site" ? "Site" : "Page";
-    const maxPages = this.clampNumber(
-      scanOptions.maxPages,
-      1,
-      50,
-      DEFAULT_SCAN_OPTIONS.maxPages,
-    );
-    const maxDepth = this.clampNumber(
-      scanOptions.maxDepth,
-      0,
-      5,
-      DEFAULT_SCAN_OPTIONS.maxDepth,
-    );
-
-    return {
-      scanScope,
-      maxPages: scanScope === "Page" ? 1 : maxPages,
-      maxDepth: scanScope === "Page" ? 0 : maxDepth,
-      autoScroll: scanOptions.autoScroll !== false,
-      includeSitemap: scanOptions.includeSitemap !== false,
-    };
+  static normalizeScanOptions() {
+    return { ...DEFAULT_SCAN_OPTIONS };
   }
 
   static clampNumber(value, minimum, maximum, fallback) {

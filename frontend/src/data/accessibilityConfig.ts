@@ -5,8 +5,10 @@ import type {
   GuidelineConfig,
   GuidelineId,
   IssueType,
+  PdfStandard,
   PrincipleName,
   RequestType,
+  ScreenReader,
   SelectedGuideline,
   SuccessCriterionConfig,
   TaskType,
@@ -22,11 +24,13 @@ export const TASK_TYPES: TaskType[] = [
   "Generate Screen Reader Transcription",
 ];
 
+export const SCREEN_READERS: ScreenReader[] = ["JAWS"];
+
 export const WCAG_VERSIONS: WcagVersion[] = ["2.0", "2.1", "2.2"];
 
 export const CONFORMANCE_LEVELS: ConformanceLevel[] = ["A", "AA", "AAA"];
 
-export const CHECK_POINTS: CheckPoint[] = [
+export const WEB_CHECK_POINTS: CheckPoint[] = [
   "All",
   "Headings",
   "Landmarks",
@@ -44,6 +48,50 @@ export const CHECK_POINTS: CheckPoint[] = [
   "Language",
   "Best Practices",
 ];
+
+export const PDF_CHECK_POINTS: CheckPoint[] = [
+  "All",
+  "Tagged Content",
+  "Primary Language",
+  "Bookmarks",
+  "Tab Order",
+  "Images",
+  "Video/Audio",
+  "Forms",
+  "Tables",
+  "Lists",
+  "Headings",
+  "Links/Buttons",
+  "Colour Contrast",
+  "Language",
+  "Title",
+  "Reading Order",
+  "Decorative Elements",
+  "Best Practice",
+];
+
+export const CHECK_POINTS = WEB_CHECK_POINTS;
+
+export const PDF_STANDARDS: PdfStandard[] = [
+  "PDF/UA (ISO 14289)",
+  "WCAG 2.0",
+  "WCAG 2.1",
+  "WCAG 2.2",
+];
+
+export const getWcagVersionForPdfStandard = (
+  pdfStandard: PdfStandard | string = "PDF/UA (ISO 14289)",
+): WcagVersion => {
+  if (pdfStandard === "WCAG 2.0") {
+    return "2.0";
+  }
+
+  if (pdfStandard === "WCAG 2.1") {
+    return "2.1";
+  }
+
+  return "2.2";
+};
 
 export interface CountryComplianceAlignment {
   conformanceLevel: ConformanceLevel;
@@ -177,6 +225,29 @@ const GUIDELINE_CHECKPOINTS: Record<GuidelineId, CheckPoint[]> = {
   "3.2": ["Focus Order", "Forms", "Link/Buttons"],
   "3.3": ["Forms", "ARIA"],
   "4.1": ["ARIA", "Hidden Content", "Best Practices"],
+};
+
+const PDF_GUIDELINE_CHECKPOINTS: Record<GuidelineId, CheckPoint[]> = {
+  "1.1": ["Images", "Decorative Elements"],
+  "1.2": ["Video/Audio"],
+  "1.3": [
+    "Tagged Content",
+    "Forms",
+    "Tables",
+    "Lists",
+    "Headings",
+    "Reading Order",
+  ],
+  "1.4": ["Colour Contrast", "Images"],
+  "2.1": ["Tab Order", "Forms"],
+  "2.2": ["Best Practice"],
+  "2.3": ["Best Practice"],
+  "2.4": ["Bookmarks", "Title", "Headings", "Links/Buttons", "Reading Order"],
+  "2.5": ["Links/Buttons", "Forms"],
+  "3.1": ["Primary Language", "Language"],
+  "3.2": ["Forms", "Links/Buttons"],
+  "3.3": ["Forms"],
+  "4.1": ["Tagged Content", "Forms", "Links/Buttons"],
 };
 
 interface GeneratedCriterion {
@@ -356,8 +427,11 @@ export const getGuidelinesForVersion = (version: WcagVersion): GuidelineConfig[]
 export const getDynamicGuidelines = (
   version: WcagVersion,
   selectedCheckPoints: CheckPoint[],
+  requestType: RequestType = "Web",
 ): GuidelineConfig[] => {
   const guidelines = getGuidelinesForVersion(version);
+  const guidelineCheckPoints =
+    requestType === "PDF" ? PDF_GUIDELINE_CHECKPOINTS : GUIDELINE_CHECKPOINTS;
 
   if (selectedCheckPoints.includes("All")) {
     return guidelines;
@@ -369,7 +443,9 @@ export const getDynamicGuidelines = (
 
   const selected = new Set(selectedCheckPoints);
   return guidelines.filter((guideline) =>
-    guideline.checkPoints.some((checkpoint) => selected.has(checkpoint)),
+    (guidelineCheckPoints[guideline.id] || guideline.checkPoints).some(
+      (checkpoint) => selected.has(checkpoint),
+    ),
   );
 };
 

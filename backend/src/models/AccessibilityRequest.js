@@ -27,6 +27,11 @@ const AccessibilityRequestSchema = new mongoose.Schema({
     ],
     default: "Guidelines Check",
   },
+  screenReader: {
+    type: String,
+    enum: ["JAWS"],
+    default: "JAWS",
+  },
   complianceType: {
     type: String,
     enum: ["WCAG Standards", "Country Regulations"],
@@ -57,6 +62,16 @@ const AccessibilityRequestSchema = new mongoose.Schema({
     enum: ["A", "AA", "AAA"],
     default: "AA",
   },
+  pdfStandard: {
+    type: String,
+    enum: ["PDF/UA (ISO 14289)", "WCAG 2.0", "WCAG 2.1", "WCAG 2.2"],
+  },
+  passCriteriaPercentage: {
+    type: Number,
+  },
+  pdfMaxFailures: {
+    type: Number,
+  },
   checkPoints: {
     type: [String],
     enum: [
@@ -71,10 +86,21 @@ const AccessibilityRequestSchema = new mongoose.Schema({
       "Images",
       "Video/Audio",
       "Link/Buttons",
+      "Links/Buttons",
       "ARIA",
       "Color Contrast",
+      "Colour Contrast",
       "Hidden Content",
       "Language",
+      "Tagged Content",
+      "Primary Language",
+      "Bookmarks",
+      "Tables",
+      "Lists",
+      "Title",
+      "Reading Order",
+      "Decorative Elements",
+      "Best Practice",
       "Best Practices",
     ],
     default: ["All"],
@@ -88,27 +114,10 @@ const AccessibilityRequestSchema = new mongoose.Schema({
     of: Number,
     default: {},
   },
-  scanScope: {
-    type: String,
-    enum: ["Page", "Site"],
-    default: "Page",
-  },
-  maxPages: {
-    type: Number,
-    default: 10,
-  },
-  maxDepth: {
-    type: Number,
-    default: 2,
-  },
-  autoScroll: {
-    type: Boolean,
-    default: true,
-  },
-  includeSitemap: {
-    type: Boolean,
-    default: true,
-  },
+  sourceFileName: String,
+  sourceFilePath: String,
+  sourceFileMimeType: String,
+  sourceFileSize: Number,
   status: {
     type: String,
     enum: ["Pending", "Running", "Completed", "Failed"],

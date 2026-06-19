@@ -145,6 +145,134 @@
   color: #b42318;
 }
 
+.modalBackdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 100;
+}
+
+.veraPdfModal {
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  color: #202734;
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+  padding: 18px;
+  width: min(100%, 560px);
+
+  header {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+
+    p {
+      color: #7d2f8f;
+      font-size: 12px;
+      font-weight: 800;
+      margin: 0 0 4px;
+      text-transform: uppercase;
+    }
+
+    h3 {
+      font-size: 18px;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    button {
+      background: #ffffff;
+      border: 1px solid #cfd6e3;
+      border-radius: 6px;
+      color: #334155;
+      cursor: pointer;
+      font-weight: 800;
+      height: 30px;
+      width: 30px;
+    }
+  }
+
+  > p {
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  dl {
+    background: #fbfcfe;
+    border: 1px solid #eef1f6;
+    border-radius: 6px;
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 10px;
+
+    div {
+      display: grid;
+      gap: 3px;
+    }
+
+    dt {
+      color: #6b7280;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    dd {
+      color: #202734;
+      font-size: 13px;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+
+    a,
+    button {
+      align-items: center;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 13px;
+      font-weight: 800;
+      min-height: 36px;
+      padding: 0 12px;
+      text-decoration: none;
+    }
+
+    a {
+      background: #edf8f8;
+      border: 1px solid #b9dfe2;
+      color: #167a7f;
+    }
+
+    button {
+      background: #167a7f;
+      border: 1px solid #167a7f;
+      color: #ffffff;
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+    }
+  }
+}
+
 @media (max-width: 700px) {
   .requestList {
     > header {

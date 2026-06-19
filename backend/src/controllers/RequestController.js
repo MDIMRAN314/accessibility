@@ -9,6 +9,14 @@ const { getSuccessCriteriaForVersion } = require("../config/wcagStandards");
 
 const SUPPORTED_WCAG_VERSIONS = ["2.0", "2.1", "2.2"];
 const SUPPORTED_CONFORMANCE_LEVELS = ["A", "AA", "AAA"];
+const SUPPORTED_SCREEN_READERS = ["JAWS"];
+const SUPPORTED_REQUEST_TYPES = ["Web", "Mobile", "PDF"];
+const SUPPORTED_PDF_STANDARDS = [
+  "PDF/UA (ISO 14289)",
+  "WCAG 2.0",
+  "WCAG 2.1",
+  "WCAG 2.2",
+];
 const BASE_WEIGHTAGES = {
   "1.1": 10,
   "1.2": 5,
@@ -28,38 +36,59 @@ const BASE_WEIGHTAGES = {
 class RequestController {
   static async createRequest(req, res) {
     try {
+      const body = parseRequestBody(req.body);
       const {
         requestName,
         url,
         requestType = "Web",
         taskType = "Guidelines Check",
+        screenReader = "JAWS",
         complianceType = "WCAG Standards",
         wcagVersion = "2.2",
         countryRegulation = DEFAULT_COUNTRY_REGULATION,
         conformanceLevel = "AA",
+        pdfStandard = "PDF/UA (ISO 14289)",
+        passCriteriaPercentage = 50,
+        pdfMaxFailures = 100,
         checkPoints = ["All"],
         guidelines = [],
         successCriteriaWeightage = {},
-        scanScope = "Page",
-        maxPages = 10,
-        maxDepth = 2,
-        autoScroll = true,
-        includeSitemap = true,
-      } = req.body;
+      } = body;
+      const normalizedRequestType = SUPPORTED_REQUEST_TYPES.includes(requestType)
+        ? requestType
+        : "Web";
+      const isPdfRequest = normalizedRequestType === "PDF";
+      const uploadedFile = req.file;
 
       // Validate URL
-      if (!url) {
+      if (!isPdfRequest && !url) {
         return res.status(400).json({ error: "URL is required" });
       }
 
-      if (!URLValidator.isValidURL(url)) {
+      if (!isPdfRequest && !URLValidator.isValidURL(url)) {
         return res.status(400).json({ error: "Enter valid URL" });
       }
 
+      if (isPdfRequest && !uploadedFile) {
+        return res.status(400).json({ error: "PDF file is required" });
+      }
+
       const normalizedComplianceType =
-        complianceType === "Country Regulations"
+        !isPdfRequest && complianceType === "Country Regulations"
           ? "Country Regulations"
           : "WCAG Standards";
+      const normalizedTaskType =
+        isPdfRequest
+          ? "Guidelines Check"
+          : taskType === "Generate Screen Reader Transcription"
+          ? "Generate Screen Reader Transcription"
+          : taskType === "Transcription Comparison"
+            ? "Transcription Comparison"
+            : "Guidelines Check";
+      const normalizedScreenReader = String(screenReader || "JAWS").trim();
+      const normalizedPdfStandard = SUPPORTED_PDF_STANDARDS.includes(pdfStandard)
+        ? pdfStandard
+        : "PDF/UA (ISO 14289)";
       const normalizedCountryRegulation =
         normalizedComplianceType === "Country Regulations"
           ? normalizeCountryRegulation(countryRegulation)
@@ -70,13 +99,22 @@ class RequestController {
           ? getCountryComplianceAlignment(normalizedCountryRegulation)
           : undefined;
       const normalizedWcagVersion =
-        normalizedComplianceType === "Country Regulations"
+        isPdfRequest
+          ? getWcagVersionForPdfStandard(normalizedPdfStandard)
+          : normalizedComplianceType === "Country Regulations"
           ? countryAlignment?.wcagVersion
           : String(wcagVersion || "2.2");
       const normalizedConformanceLevel =
-        normalizedComplianceType === "Country Regulations"
+        isPdfRequest
+          ? "AA"
+          : normalizedComplianceType === "Country Regulations"
           ? countryAlignment?.conformanceLevel
           : String(conformanceLevel || "AA").toUpperCase();
+      const normalizedUrl = isPdfRequest
+        ? uploadedFile.originalname
+        : String(url || "").trim();
+      const normalizedCheckPoints = normalizeArrayField(checkPoints, ["All"]);
+      const normalizedGuidelines = normalizeArrayField(guidelines, []);
 
       if (
         normalizedComplianceType === "Country Regulations" &&
@@ -99,11 +137,50 @@ class RequestController {
         });
       }
 
+      if (
+        normalizedTaskType === "Generate Screen Reader Transcription" &&
+        !SUPPORTED_SCREEN_READERS.includes(normalizedScreenReader)
+      ) {
+        return res.status(400).json({
+          error: `Unsupported screen reader: ${normalizedScreenReader}. Supported screen readers: ${SUPPORTED_SCREEN_READERS.join(", ")}`,
+        });
+      }
+
+      if (
+        normalizedTaskType === "Generate Screen Reader Transcription" &&
+        normalizedRequestType !== "Web"
+      ) {
+        return res.status(400).json({
+          error: "Screen reader transcription is supported for Web requests only",
+        });
+      }
+
+      if (
+        normalizedTaskType === "Generate Screen Reader Transcription" &&
+        (!Array.isArray(normalizedCheckPoints) ||
+          normalizedCheckPoints.length === 0)
+      ) {
+        return res.status(400).json({
+          error: "At least one accessibility checkpoint is required",
+        });
+      }
+
       const request = await AccessibilityStore.createRequest({
-        url,
-        requestName: createRequestName(requestName, url),
-        requestType,
-        taskType,
+        url: normalizedUrl,
+        requestName: createRequestName(
+          requestName,
+          normalizedUrl,
+          uploadedFile?.originalname,
+        ),
+        requestType:
+          normalizedTaskType === "Generate Screen Reader Transcription"
+            ? "Web"
+            : normalizedRequestType,
+        taskType: normalizedTaskType,
+        screenReader:
+          normalizedTaskType === "Generate Screen Reader Transcription"
+            ? normalizedScreenReader
+            : undefined,
         complianceType: normalizedComplianceType,
         wcagVersion: normalizedWcagVersion,
         countryRegulation:
@@ -111,18 +188,30 @@ class RequestController {
             ? normalizedCountryRegulation
             : undefined,
         conformanceLevel: normalizedConformanceLevel,
-        checkPoints,
-        guidelines,
-        successCriteriaWeightage: normalizeSuccessCriteriaWeightage(
-          successCriteriaWeightage,
-          normalizedWcagVersion,
-          guidelines,
-        ),
-        scanScope: scanScope === "Site" ? "Site" : "Page",
-        maxPages: clampNumber(maxPages, 1, 50, 10),
-        maxDepth: clampNumber(maxDepth, 0, 5, 2),
-        autoScroll: autoScroll !== false,
-        includeSitemap: includeSitemap !== false,
+        pdfStandard: isPdfRequest ? normalizedPdfStandard : undefined,
+        passCriteriaPercentage: isPdfRequest
+          ? clampPercentage(passCriteriaPercentage, 50)
+          : undefined,
+        pdfMaxFailures: isPdfRequest
+          ? normalizePositiveInteger(pdfMaxFailures, 100)
+          : undefined,
+        checkPoints: normalizedCheckPoints,
+        guidelines:
+          normalizedTaskType === "Generate Screen Reader Transcription"
+            ? []
+            : normalizedGuidelines,
+        successCriteriaWeightage:
+          normalizedTaskType === "Generate Screen Reader Transcription"
+            ? {}
+            : normalizeSuccessCriteriaWeightage(
+                successCriteriaWeightage,
+                normalizedWcagVersion,
+                normalizedGuidelines,
+              ),
+        sourceFileName: uploadedFile?.originalname,
+        sourceFilePath: uploadedFile?.path,
+        sourceFileMimeType: uploadedFile?.mimetype,
+        sourceFileSize: uploadedFile?.size,
         status: "Pending",
       });
 
@@ -200,9 +289,106 @@ class RequestController {
   }
 }
 
-const createRequestName = (name, url) => {
+const parseRequestBody = (body = {}) => {
+  if (typeof body.metadata === "string") {
+    try {
+      const metadata = JSON.parse(body.metadata);
+      return metadata && typeof metadata === "object" ? metadata : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return Object.entries(body).reduce((parsed, [key, value]) => {
+    parsed[key] = parseFieldValue(value);
+    return parsed;
+  }, {});
+};
+
+const parseFieldValue = (value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return value;
+  }
+
+  if (
+    (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+    (trimmed.startsWith("{") && trimmed.endsWith("}"))
+  ) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+};
+
+const normalizeArrayField = (value, fallback = []) => {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const parsed = parseFieldValue(value);
+
+    if (Array.isArray(parsed)) {
+      return parsed.filter(Boolean);
+    }
+
+    if (value.trim()) {
+      return [value.trim()];
+    }
+  }
+
+  return fallback;
+};
+
+const getWcagVersionForPdfStandard = (pdfStandard) => {
+  if (pdfStandard === "WCAG 2.0") {
+    return "2.0";
+  }
+
+  if (pdfStandard === "WCAG 2.1") {
+    return "2.1";
+  }
+
+  return "2.2";
+};
+
+const clampPercentage = (value, fallback) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return Math.min(100, Math.max(0, numericValue));
+};
+
+const normalizePositiveInteger = (value, fallback) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallback;
+  }
+
+  return Math.trunc(numericValue);
+};
+
+const createRequestName = (name, url, fileName) => {
   if (typeof name === "string" && name.trim()) {
     return name.trim();
+  }
+
+  if (typeof fileName === "string" && fileName.trim()) {
+    return fileName.replace(/\.(pdf|pdfx)$/i, "").trim() || "PDF Accessibility";
   }
 
   try {
@@ -211,16 +397,6 @@ const createRequestName = (name, url) => {
   } catch {
     return "Accessibility";
   }
-};
-
-const clampNumber = (value, minimum, maximum, fallback) => {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return fallback;
-  }
-
-  return Math.min(Math.max(Math.trunc(number), minimum), maximum);
 };
 
 const normalizeSuccessCriteriaWeightage = (

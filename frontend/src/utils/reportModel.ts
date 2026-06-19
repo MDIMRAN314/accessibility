@@ -62,7 +62,11 @@ export const getTabCounts = (report: AccessibilityReport): TabCount[] =>
 export const isBestPracticeConfigured = (report: AccessibilityReport): boolean => {
   const checkPoints = report.requestDetails?.checkPoints ?? [];
 
-  if (checkPoints.includes("All") || checkPoints.includes("Best Practices")) {
+  if (
+    checkPoints.includes("All") ||
+    checkPoints.includes("Best Practices") ||
+    checkPoints.includes("Best Practice")
+  ) {
     return true;
   }
 

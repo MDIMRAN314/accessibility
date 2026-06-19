@@ -1,5 +1,6 @@
 const express = require("express");
 const URLValidator = require("../services/URLValidator");
+const PdfAccessibilityTester = require("../services/PdfAccessibilityTester");
 const { wcagStandards, successCriteria } = require("../config/wcagStandards");
 
 const router = express.Router();
@@ -51,6 +52,20 @@ router.get("/standards", (req, res) => {
 // Get success criteria
 router.get("/criteria", (req, res) => {
   res.json(successCriteria);
+});
+
+router.get("/tools/verapdf", async (req, res) => {
+  try {
+    const status = await PdfAccessibilityTester.getVeraPdfStatus();
+
+    res.status(status.available ? 200 : 409).json({
+      success: status.available,
+      veraPdf: status,
+      message: status.message,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;

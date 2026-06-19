@@ -96,7 +96,8 @@ const AccessibilityReportSchema = new mongoose.Schema({
   complianceType: String,
   countryRegulation: String,
   requestDetails: mongoose.Schema.Types.Mixed,
-  scanScope: String,
+  transcription: mongoose.Schema.Types.Mixed,
+  pdfValidation: mongoose.Schema.Types.Mixed,
   scannedPages: [
     {
       url: String,
@@ -108,7 +109,6 @@ const AccessibilityReportSchema = new mongoose.Schema({
       error: String,
     },
   ],
-  crawlSummary: mongoose.Schema.Types.Mixed,
   generationTime: Number, // in milliseconds
   reportSize: Number, // in bytes
   accessibilityScore: Number,

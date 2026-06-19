@@ -5,11 +5,19 @@ export type TaskType =
   | "Transcription Comparison"
   | "Generate Screen Reader Transcription";
 
+export type ScreenReader = "JAWS";
+
 export type ComplianceType = "WCAG Standards" | "Country Regulations";
 
 export type WcagVersion = "2.0" | "2.1" | "2.2";
 
 export type ConformanceLevel = "A" | "AA" | "AAA";
+
+export type PdfStandard =
+  | "PDF/UA (ISO 14289)"
+  | "WCAG 2.0"
+  | "WCAG 2.1"
+  | "WCAG 2.2";
 
 export type CheckPoint =
   | "All"
@@ -23,10 +31,21 @@ export type CheckPoint =
   | "Images"
   | "Video/Audio"
   | "Link/Buttons"
+  | "Links/Buttons"
   | "ARIA"
   | "Color Contrast"
+  | "Colour Contrast"
   | "Hidden Content"
   | "Language"
+  | "Tagged Content"
+  | "Primary Language"
+  | "Bookmarks"
+  | "Tables"
+  | "Lists"
+  | "Title"
+  | "Reading Order"
+  | "Decorative Elements"
+  | "Best Practice"
   | "Best Practices";
 
 export type CountryRegulation =
@@ -86,8 +105,6 @@ export type ReportStatus =
 
 export type ReportViewMode = "summary" | "guidelines" | "elements";
 
-export type ScanScope = "Page" | "Site";
-
 export type ReportIssueTab =
   | "all"
   | "automated"
@@ -119,18 +136,20 @@ export interface AccessibilityRequestPayload {
   requestType: RequestType;
   url: string;
   taskType: TaskType;
+  screenReader?: ScreenReader;
   complianceType: ComplianceType;
   wcagVersion: WcagVersion;
   countryRegulation?: CountryRegulation;
   conformanceLevel: ConformanceLevel;
+  pdfStandard?: PdfStandard;
+  passCriteriaPercentage?: number;
+  pdfMaxFailures?: number;
   checkPoints: CheckPoint[];
   guidelines: SelectedGuideline[];
   successCriteriaWeightage: Record<string, number>;
-  scanScope: ScanScope;
-  maxPages: number;
-  maxDepth: number;
-  autoScroll: boolean;
-  includeSitemap: boolean;
+  sourceFileName?: string;
+  sourceFileSize?: number;
+  sourceFileMimeType?: string;
 }
 
 export interface AccessibilityRequest extends AccessibilityRequestPayload {
@@ -265,6 +284,28 @@ export interface ScoreHistoryEntry {
   reason: string;
 }
 
+export interface TranscriptionSection {
+  checkpoint: CheckPoint | string;
+  lines: string[];
+}
+
+export interface ScreenReaderTranscription {
+  screenReader: ScreenReader;
+  mode?: "actual-jaws-demo" | "semantic-fallback" | string;
+  url: string;
+  pageTitle: string;
+  generatedAt: string;
+  selectedCheckPoints: CheckPoint[];
+  actualContent: string;
+  sections: TranscriptionSection[];
+  stats: {
+    characters: number;
+    lines: number;
+    words: number;
+  };
+  notes?: string[];
+}
+
 export interface ScannedPage {
   url: string;
   depth: number;
@@ -275,17 +316,38 @@ export interface ScannedPage {
   error?: string | null;
 }
 
-export interface CrawlSummary {
-  scanScope: ScanScope;
-  startUrl: string;
-  maxPages: number;
-  maxDepth: number;
-  autoScroll: boolean;
-  includeSitemap: boolean;
-  pagesQueued: number;
-  pagesScanned: number;
-  pagesFailed: number;
-  pagesSkipped: number;
+export interface PdfValidationCheck {
+  ruleId?: string;
+  clause?: string;
+  testNumber?: string;
+  description: string;
+  status?: string;
+  context?: string;
+  criterion?: string;
+  checkpoint?: CheckPoint | string;
+}
+
+export interface PdfValidationSummary {
+  standard: PdfStandard | string;
+  tool: "veraPDF";
+  toolAvailable: boolean;
+  toolVersion?: string;
+  isCompliant?: boolean | null;
+  error?: string;
+  failedChecks: PdfValidationCheck[];
+  passedRules?: number;
+  failedRules?: number;
+  rawSummary?: unknown;
+}
+
+export interface VeraPdfStatus {
+  available: boolean;
+  command: string;
+  downloadUrl: string;
+  installUrl: string;
+  version?: string;
+  error?: string;
+  message: string;
 }
 
 export interface AccessibilityReport {
@@ -297,21 +359,27 @@ export interface AccessibilityReport {
   conformanceLevel: ConformanceLevel;
   complianceType: ComplianceType;
   countryRegulation?: CountryRegulation;
-  scanScope?: ScanScope;
   scannedPages?: ScannedPage[];
-  crawlSummary?: CrawlSummary;
   generationTime: number;
   reportSize: number;
   accessibilityScore: number;
   requestDetails?: AccessibilityRequestPayload;
+  transcription?: ScreenReaderTranscription;
+  pdfValidation?: PdfValidationSummary;
   summary: ReportSummary;
   issueSeverityCount: IssueSeverityCount;
   scoreBreakdown?: ScoreBreakdown;
-  scoreHistory?: ScoreHistoryEntry[];
   issues: AccessibilityIssue[];
   principles: ReportPrinciple[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScoreHistoryResponse {
+  success: boolean;
+  reportId: string;
+  requestId: string;
+  scoreHistory: ScoreHistoryEntry[];
 }
 
 export interface TabCount {

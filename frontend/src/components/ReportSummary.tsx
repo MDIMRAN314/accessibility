@@ -35,9 +35,12 @@ function ReportSummary({
   const scoredWeightTotal =
     report.scoreBreakdown?.scoredWeightTotal ?? configuredWeightTotal;
   const showBestPractices = isBestPracticeConfigured(report);
+  const scannedPages = report.scannedPages ?? [];
   const pagesScanned =
-    report.crawlSummary?.pagesScanned ?? report.scannedPages?.length ?? 1;
-  const pagesFailed = report.crawlSummary?.pagesFailed ?? 0;
+    scannedPages.filter((page) => page.status !== "Failed").length ||
+    scannedPages.length ||
+    1;
+  const pagesFailed = scannedPages.filter((page) => page.status === "Failed").length;
   const automaticIssues = getIssuesForTab(report.issues, "automated").length;
   const semiAutomatedIssues = getIssuesForTab(report.issues, "semi-automated").length;
   const manualIssues = getIssuesForTab(report.issues, "manual").length;
@@ -54,7 +57,9 @@ function ReportSummary({
         ? "Medium"
         : "High";
   const complianceLabel =
-    report.complianceType === "Country Regulations" && report.countryRegulation
+    report.requestDetails?.requestType === "PDF" && report.requestDetails.pdfStandard
+      ? report.requestDetails.pdfStandard
+      : report.complianceType === "Country Regulations" && report.countryRegulation
       ? getCountryRegulationDisplayName(report.countryRegulation)
       : `WCAG ${report.wcagVersion} ${report.conformanceLevel}`;
 
@@ -185,7 +190,6 @@ function ReportSummary({
         <dl className={styles.summaryMeta}>
           <div><dt>Report Size</dt><dd>{formatBytes(report.reportSize)}</dd></div>
           <div><dt>Generation Time</dt><dd>{formatDuration(report.generationTime)}</dd></div>
-          <div><dt>Scope</dt><dd>{report.scanScope ?? report.requestDetails?.scanScope ?? "Page"}</dd></div>
           <div>
             <dt>Pages</dt>
             <dd>{pagesScanned}{pagesFailed ? ` scanned, ${pagesFailed} failed` : ""}</dd>

@@ -102,6 +102,37 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.pdfFieldGrid {
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+}
+
+.pdfUploadPanel {
+  border: 1px solid #eadcf4;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.fileSummary {
+  align-items: center;
+  background: #fbfcfe;
+  border: 1px solid #dfe3ea;
+  border-radius: 6px;
+  color: #202734;
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 8px 10px;
+
+  span {
+    color: #6b7280;
+    font-size: 12px;
+  }
+}
+
 .scanCoveragePanel {
   border: 1px solid #d7e7ea;
   border-radius: 8px;
@@ -481,6 +512,129 @@
   padding: 10px 12px;
 }
 
+.modalBackdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 100;
+}
+
+.veraPdfModal {
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  color: #202734;
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+  padding: 18px;
+  width: min(100%, 560px);
+
+  header {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+
+    p {
+      color: #7d2f8f;
+      font-size: 12px;
+      font-weight: 800;
+      margin: 0 0 4px;
+      text-transform: uppercase;
+    }
+
+    h3 {
+      font-size: 18px;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    button {
+      background: #ffffff;
+      border: 1px solid #cfd6e3;
+      border-radius: 6px;
+      color: #334155;
+      cursor: pointer;
+      font-weight: 800;
+      height: 30px;
+      width: 30px;
+    }
+  }
+
+  > p {
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  dl {
+    background: #fbfcfe;
+    border: 1px solid #eef1f6;
+    border-radius: 6px;
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 10px;
+
+    div {
+      display: grid;
+      gap: 3px;
+    }
+
+    dt {
+      color: #6b7280;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    dd {
+      color: #202734;
+      font-size: 13px;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+
+    a,
+    button {
+      align-items: center;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      font-size: 13px;
+      font-weight: 800;
+      min-height: 36px;
+      padding: 0 12px;
+      text-decoration: none;
+    }
+
+    a {
+      background: #edf8f8;
+      border: 1px solid #b9dfe2;
+      color: #167a7f;
+    }
+
+    button {
+      background: #167a7f;
+      border: 1px solid #167a7f;
+      color: #ffffff;
+    }
+  }
+}
+
 @media (max-width: 820px) {
   .requestPage {
     .pageHeader {
@@ -491,6 +645,10 @@
   }
 
   .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pdfFieldGrid {
     grid-template-columns: 1fr;
   }
 

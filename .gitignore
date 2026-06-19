@@ -21,6 +21,8 @@ dist/
 build/
 out/
 backend/.cache/
+backend/.jaws-browser-profile/
+backend/uploads/
 
 # Logs
 *.log
