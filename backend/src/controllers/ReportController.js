@@ -1268,11 +1268,22 @@ class ReportController {
     }
 
     const reportResponse = JSON.parse(JSON.stringify(report));
+    ReportController.removeDuplicatedPrincipleIssues(reportResponse);
     delete reportResponse.crawlSummary;
     delete reportResponse.scoreHistory;
     delete reportResponse.scanScope;
 
     return reportResponse;
+  }
+
+  static removeDuplicatedPrincipleIssues(report) {
+    (report.principles || []).forEach((principle) => {
+      (principle.guidelines || []).forEach((guideline) => {
+        (guideline.criteria || []).forEach((criterion) => {
+          delete criterion.issues;
+        });
+      });
+    });
   }
 }
 

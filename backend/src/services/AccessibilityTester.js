@@ -13,6 +13,8 @@ const {
   getSuccessCriteriaForVersion,
   wcagStandards,
 } = require("../config/wcagStandards");
+const CustomMediaRules = require("./CustomMediaRules");
+const CustomWcagRules = require("./CustomWcagRules");
 const EnginePriority = require("./EnginePriority");
 
 const DEFAULT_SCAN_OPTIONS = {
@@ -327,6 +329,8 @@ class AccessibilityTester {
       const htmlcsResults = this.shouldRunHtmlcs(wcagVersion)
         ? await this.runHtmlcsTests(page, conformanceLevel)
         : [];
+      const customMediaResults = await CustomMediaRules.scan(page);
+      const customWcagResults = await CustomWcagRules.scan(page);
 
       const title = await page.title();
       const links = await this.discoverPageLinks(page, url, options);
@@ -355,6 +359,14 @@ class AccessibilityTester {
         ),
         ...this.processHtmlcsResults(
           htmlcsResults,
+          wcagVersion,
+          conformanceLevel,
+          checkPoints,
+          selectedGuidelines,
+          pageContext,
+        ),
+        ...this.processCustomMediaResults(
+          [...customMediaResults, ...customWcagResults],
           wcagVersion,
           conformanceLevel,
           checkPoints,
@@ -1195,6 +1207,123 @@ class AccessibilityTester {
       .filter(Boolean);
   }
 
+  static processCustomMediaResults(
+    customMediaResults,
+    wcagVersion,
+    conformanceLevel,
+    checkPoints,
+    selectedGuidelines,
+    pageContext = {},
+  ) {
+    const criteria = getSuccessCriteriaForVersion(wcagVersion);
+    const selectedGuidelineSet = new Set(selectedGuidelines || ["All"]);
+
+    return (customMediaResults || [])
+      .map((result, index) => {
+        const criterion = result.criterion;
+        const criterionConfig = criteria[criterion];
+
+        if (!criterionConfig) {
+          return null;
+        }
+
+        const guideline = this.getGuidelineFromCriterion(criterion);
+        const config = wcagStandards[wcagVersion]?.guidelines?.[guideline];
+
+        if (!this.isCriterionInConformance(criterionConfig, conformanceLevel)) {
+          return null;
+        }
+
+        if (
+          !selectedGuidelineSet.has("All") &&
+          !selectedGuidelineSet.has(guideline)
+        ) {
+          return null;
+        }
+
+        if (
+          !this.shouldIncludeResult(
+            {
+              id: result.id,
+              help: result.description,
+              description: result.description,
+              checkpoint: result.checkpoint,
+              tags: result.tags || [],
+            },
+            checkPoints,
+          )
+        ) {
+          return null;
+        }
+
+        const status = result.status || "Fail";
+        const type = result.type || "Automated";
+        const engine = result.engine || "custom-media-rules";
+        const issueId = [
+          engine === "custom-media-rules" ? "CUSTOM-MEDIA" : "CUSTOM-WCAG",
+          pageContext.pageIndex || 1,
+          result.id || "rule",
+          index,
+        ]
+          .join("-")
+          .replace(/\s+/g, "-")
+          .replace(/[^a-zA-Z0-9_.-]/g, "-");
+        const description =
+          result.description || "Custom media accessibility rule finding";
+        const suggestedFix = this.createSuggestedFix({
+          description,
+          rawSuggestion: result.recommendation,
+          criterion,
+          criterionConfig,
+        });
+
+        return {
+          issueId,
+          criterion,
+          principle: config?.principle,
+          guideline,
+          description,
+          severity: result.severity || "Moderate",
+          status,
+          type,
+          pageUrl: pageContext.pageUrl,
+          pageTitle: pageContext.pageTitle,
+          pageDepth: pageContext.pageDepth,
+          elements: result.element
+            ? [
+                this.mapCustomMediaElement(
+                  result.element,
+                  index,
+                  pageContext,
+                  status,
+                ),
+              ]
+            : [],
+          suggestedFix,
+          howToTest: criterionConfig?.howToTest,
+          automationJustification:
+            type === "Manual"
+              ? "Custom media rule detected the relevant embedded media pattern. Manual verification is required for caption accuracy, transcript quality, audio description adequacy, or keyboard operation."
+              : criterionConfig?.automationJustification,
+          helpUrl: undefined,
+          referenceLinks: this.getReferenceLinks({
+            engine,
+            ruleId: result.id,
+            criterion,
+            criterionConfig,
+            wcagVersion,
+          }),
+          engine,
+          enginePriority: EnginePriority.getEnginePriority(engine),
+          rawStatus: status,
+          finalStatus: status,
+          decisionEngine: engine,
+          suppressedByPriority: false,
+        };
+      })
+      .filter(Boolean);
+  }
+
   static createSuggestedFix({
     description,
     rawSuggestion,
@@ -1427,6 +1556,48 @@ class AccessibilityTester {
         html.substring(0, 100) ||
         result.ruleId ||
         "Document",
+      html,
+      selector,
+      xpath,
+      screenshot: null,
+      status,
+      pageUrl: pageContext.pageUrl,
+      pageTitle: pageContext.pageTitle,
+      locators: [
+        {
+          type: "CSS Selector",
+          value: selector || "N/A",
+        },
+        {
+          type: "XPath",
+          value: xpath || "N/A",
+        },
+        {
+          type: "Page URL",
+          value: pageContext.pageUrl || "N/A",
+        },
+      ],
+    };
+  }
+
+  static mapCustomMediaElement(
+    element,
+    index,
+    pageContext = {},
+    status = "Manual Review",
+  ) {
+    const selector = element.selector || "";
+    const xpath = element.xpath || "";
+    const html = element.html || "";
+
+    return {
+      elementId: `CUSTOM-MEDIA-ELEMENT-${pageContext.pageIndex || 1}-${index}`,
+      elementName:
+        element.elementName ||
+        selector ||
+        xpath ||
+        html.substring(0, 100) ||
+        "Embedded media",
       html,
       selector,
       xpath,
@@ -1699,6 +1870,10 @@ class AccessibilityTester {
   }
 
   static classifyCheckpoint(result) {
+    if (result.checkpoint) {
+      return result.checkpoint;
+    }
+
     const text = [
       result.id,
       result.help,

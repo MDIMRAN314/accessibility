@@ -123,4 +123,39 @@ describe("EnginePriority", () => {
       "#logo",
     ]);
   });
+
+  it("keeps custom media failures when another engine passes the criterion", () => {
+    const issues = EnginePriority.applyToIssues([
+      {
+        issueId: "AXE-PASS",
+        criterion: "1.2.2",
+        status: "Pass",
+        type: "Automated",
+        engine: "axe-core",
+        pageUrl: "https://example.com",
+        elements: [],
+      },
+      {
+        issueId: "CUSTOM-FAIL",
+        criterion: "1.2.2",
+        status: "Fail",
+        type: "Automated",
+        engine: "custom-media-rules",
+        pageUrl: "https://example.com",
+        elements: [{ selector: "iframe", status: "Fail" }],
+      },
+    ]);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      issueId: "CUSTOM-FAIL",
+      status: "Fail",
+      finalStatus: "Fail",
+      decisionEngine: "custom-media-rules",
+    });
+    expect(issues[0].engineResults).toEqual([
+      { engine: "axe-core", status: "Pass", count: 1 },
+      { engine: "custom-media-rules", status: "Fail", count: 1 },
+    ]);
+  });
 });

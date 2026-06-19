@@ -35,6 +35,7 @@ export type CheckPoint =
   | "ARIA"
   | "Color Contrast"
   | "Colour Contrast"
+  | "Responsive"
   | "Hidden Content"
   | "Language"
   | "Tagged Content"

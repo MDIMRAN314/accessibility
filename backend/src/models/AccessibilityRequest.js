@@ -90,6 +90,7 @@ const AccessibilityRequestSchema = new mongoose.Schema({
       "ARIA",
       "Color Contrast",
       "Colour Contrast",
+      "Responsive",
       "Hidden Content",
       "Language",
       "Tagged Content",

@@ -1,4 +1,10 @@
-const ENGINE_PRIORITY_ORDER = ["axe-core", "ibm-equal-access", "htmlcs"];
+const ENGINE_PRIORITY_ORDER = [
+  "axe-core",
+  "ibm-equal-access",
+  "htmlcs",
+  "custom-media-rules",
+  "custom-wcag-rules",
+];
 const ENGINE_PRIORITY = Object.fromEntries(
   ENGINE_PRIORITY_ORDER.map((engine, index) => [engine, index + 1]),
 );
