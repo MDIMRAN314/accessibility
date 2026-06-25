@@ -1,7 +1,7 @@
 const ScoreCalculator = require("./ScoreCalculator");
 
 describe("ScoreCalculator", () => {
-  it("normalizes by configured guideline weight, not only assessed weight", () => {
+  it("normalizes by assessed guideline weight and excludes unassessed weight", () => {
     const result = ScoreCalculator.calculate({
       wcagVersion: "2.2",
       requestDetails: {
@@ -19,10 +19,41 @@ describe("ScoreCalculator", () => {
       ],
     });
 
-    expect(result.accessibilityScore).toBe(10);
+    expect(result.accessibilityScore).toBe(100);
     expect(result.scoreBreakdown.configuredWeightTotal).toBe(100);
     expect(result.scoreBreakdown.scoredWeightTotal).toBe(10);
+    expect(result.scoreBreakdown.unassessedWeightTotal).toBe(90);
+    expect(result.scoreBreakdown.normalizationWeightTotal).toBe(10);
     expect(result.scoreBreakdown.rawComplianceScore).toBe(10);
+  });
+
+  it("excludes NA criteria from the scoring denominator", () => {
+    const result = ScoreCalculator.calculate({
+      wcagVersion: "2.2",
+      requestDetails: {
+        successCriteriaWeightage: {
+          "1.1": 67,
+          "1.2": 33,
+        },
+      },
+      issues: [
+        {
+          criterion: "1.1.1",
+          status: "Pass",
+          type: "Automated",
+        },
+        {
+          criterion: "1.2.1",
+          status: "NA",
+          type: "Manual",
+        },
+      ],
+    });
+
+    expect(result.accessibilityScore).toBe(100);
+    expect(result.scoreBreakdown.configuredWeightTotal).toBe(100);
+    expect(result.scoreBreakdown.scoredWeightTotal).toBe(67);
+    expect(result.scoreBreakdown.normalizationWeightTotal).toBe(67);
   });
 
   it("uses configured weight as 100 percent when tester selects a partial total", () => {

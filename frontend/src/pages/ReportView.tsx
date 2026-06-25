@@ -105,6 +105,20 @@ function ReportView(): JSX.Element {
     () => getElementGroups(filteredIssues),
     [filteredIssues],
   );
+  const activeElementKey = useMemo(() => {
+    if (!report || !detailSubject) {
+      return null;
+    }
+
+    if (detailSubject.kind === "element") {
+      return detailSubject.elementKey;
+    }
+
+    const issue = getIssueById(report, detailSubject.issueId);
+    const element = issue?.elements[0];
+
+    return element ? getElementKey(element) : null;
+  }, [detailSubject, report]);
 
   const openDetail = (subject: DetailDrawerSubject) => {
     setDetailSubject(subject);
@@ -387,6 +401,7 @@ function ReportView(): JSX.Element {
 
         {!isTranscriptionReport && activeView === "elements" ? (
           <ElementView
+            activeElementKey={activeElementKey}
             activeTab={activeIssueTab}
             onElementStatusChange={handleElementStatusChange}
             onLocateElement={openSourceDebugger}

@@ -2,19 +2,19 @@ const { getSuccessCriteriaForVersion } = require("../config/wcagStandards");
 const EnginePriority = require("./EnginePriority");
 
 const DEFAULT_GUIDELINE_WEIGHTS = {
-  "1.1": 10,
-  "1.2": 5,
-  "1.3": 8,
-  "1.4": 7,
-  "2.1": 10,
-  "2.2": 4,
-  "2.3": 2,
-  "2.4": 10,
-  "2.5": 6,
-  "3.1": 7,
-  "3.2": 8,
-  "3.3": 8,
-  "4.1": 15,
+  1.1: 10,
+  1.2: 5,
+  1.3: 8,
+  1.4: 7,
+  2.1: 10,
+  2.2: 4,
+  2.3: 2,
+  2.4: 10,
+  2.5: 6,
+  3.1: 7,
+  3.2: 8,
+  3.3: 8,
+  4.1: 15,
 };
 
 class ScoreCalculator {
@@ -33,14 +33,18 @@ class ScoreCalculator {
     const hasConfiguredWeightages = Object.keys(weightages).length > 0;
     const guidelineIds = hasConfiguredWeightages
       ? Object.keys(weightages)
-      : Array.from(new Set(Object.values(criteria).map((item) => item.guideline)));
+      : Array.from(
+          new Set(Object.values(criteria).map((item) => item.guideline)),
+        );
 
     const configuredWeightTotal = guidelineIds.reduce(
-      (total, guidelineId) => total + this.getGuidelineWeight(
-        guidelineId,
-        weightages,
-        hasConfiguredWeightages,
-      ),
+      (total, guidelineId) =>
+        total +
+        this.getGuidelineWeight(
+          guidelineId,
+          weightages,
+          hasConfiguredWeightages,
+        ),
       0,
     );
 

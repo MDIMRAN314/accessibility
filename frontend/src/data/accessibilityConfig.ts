@@ -488,19 +488,8 @@ export const groupGuidelinesByPrinciple = (
 export const createDefaultWeightages = (
   guidelines: GuidelineConfig[],
 ): Record<string, number> => {
-  const totalBase = guidelines.reduce(
-    (total, guideline) => total + BASE_WEIGHTAGES[guideline.id],
-    0,
-  );
-
-  let runningTotal = 0;
-  return guidelines.reduce<Record<string, number>>((weightages, guideline, index) => {
-    const value =
-      index === guidelines.length - 1
-        ? 100 - runningTotal
-        : Math.round((BASE_WEIGHTAGES[guideline.id] / totalBase) * 100);
-
-    runningTotal += value;
+  return guidelines.reduce<Record<string, number>>((weightages, guideline) => {
+    const value = BASE_WEIGHTAGES[guideline.id] ?? 0;
     weightages[guideline.id] = value;
     return weightages;
   }, {});
@@ -515,11 +504,11 @@ export const reconcileWeightages = (
     Object.entries(currentWeightages).filter(([id]) => guidelineIds.has(id as GuidelineId)),
   );
 
-  if (Object.keys(retained).length !== guidelines.length) {
-    return createDefaultWeightages(guidelines);
-  }
-
-  return retained;
+  return guidelines.reduce<Record<string, number>>((weightages, guideline) => {
+    weightages[guideline.id] =
+      retained[guideline.id] ?? BASE_WEIGHTAGES[guideline.id] ?? 0;
+    return weightages;
+  }, {});
 };
 
 export const getWeightageTotal = (weightages: Record<string, number>): number =>

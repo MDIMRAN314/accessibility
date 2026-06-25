@@ -273,6 +273,8 @@ export interface GuidelineScoreBreakdown {
 export interface ScoreBreakdown {
   configuredWeightTotal: number;
   scoredWeightTotal?: number;
+  unassessedWeightTotal?: number;
+  normalizationWeightTotal?: number;
   rawComplianceScore: number;
   normalizedScore: number;
   guidelines: GuidelineScoreBreakdown[];

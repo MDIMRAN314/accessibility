@@ -119,6 +119,20 @@ const summarizeGuidelines = (
   return value.length === 1 ? value[0] : `${value.length} selected`;
 };
 
+const normalizePayloadCheckPoints = (
+  checkPoints: CheckPoint[],
+  availableCheckPoints: CheckPoint[],
+): CheckPoint[] => {
+  if (
+    checkPoints.includes("All") ||
+    checkPoints.length === availableCheckPoints.length
+  ) {
+    return ["All"];
+  }
+
+  return checkPoints;
+};
+
 const clampWeightage = (value: number): number => {
   if (!Number.isFinite(value)) {
     return 0;
@@ -737,10 +751,13 @@ function RequestForm(): JSX.Element {
       }
 
       const payload: AccessibilityRequestPayload = {
-        ...form,
         requestType: isScreenReaderTranscription ? "Web" : form.requestType,
         url: isPdfRequest ? pdfFile?.name || "" : form.url.trim(),
+        taskType: isScreenReaderTranscription
+          ? "Generate Screen Reader Transcription"
+          : form.taskType,
         screenReader: isScreenReaderTranscription ? "JAWS" : undefined,
+        complianceType: isPdfRequest ? "WCAG Standards" : form.complianceType,
         requestName: form.requestName?.trim() || undefined,
         wcagVersion:
           form.requestType === "PDF"
@@ -756,6 +773,10 @@ function RequestForm(): JSX.Element {
             : form.complianceType === "Country Regulations"
             ? countryAlignment.conformanceLevel
             : form.conformanceLevel,
+        checkPoints: normalizePayloadCheckPoints(
+          form.checkPoints,
+          availableCheckPoints,
+        ),
         guidelines: isScreenReaderTranscription
           ? []
           : form.guidelines.includes("All")
@@ -768,6 +789,10 @@ function RequestForm(): JSX.Element {
           !isPdfRequest && form.complianceType === "Country Regulations"
             ? (form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION)
             : undefined,
+        pdfStandard: isPdfRequest ? form.pdfStandard : undefined,
+        passCriteriaPercentage: isPdfRequest
+          ? form.passCriteriaPercentage ?? 50
+          : undefined,
         pdfMaxFailures: isPdfRequest ? form.pdfMaxFailures ?? 100 : undefined,
         sourceFileName: isPdfRequest ? pdfFile?.name : undefined,
         sourceFileSize: isPdfRequest ? pdfFile?.size : undefined,
@@ -1140,32 +1165,22 @@ function RequestForm(): JSX.Element {
                   </Field>
                 </>
               ) : (
-                <>
-                  <Field label="Country Regulations" required>
-                    <select
-                      onChange={(event) =>
-                        handleCountryChange(
-                          event.target.value as CountryRegulation,
-                        )
-                      }
-                      value={form.countryRegulation}
-                    >
-                      {COUNTRY_REGULATIONS.map((regulation) => (
-                        <option key={regulation} value={regulation}>
-                          {COUNTRY_REGULATION_DISPLAY_NAMES[regulation]}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-
-                  <Field label="WCAG Alignment" required>
-                    <input
-                      readOnly
-                      type="text"
-                      value={`WCAG ${countryAlignment.wcagVersion} ${countryAlignment.conformanceLevel}`}
-                    />
-                  </Field>
-                </>
+                <Field label="Country Regulations" required>
+                  <select
+                    onChange={(event) =>
+                      handleCountryChange(
+                        event.target.value as CountryRegulation,
+                      )
+                    }
+                    value={form.countryRegulation}
+                  >
+                    {COUNTRY_REGULATIONS.map((regulation) => (
+                      <option key={regulation} value={regulation}>
+                        {COUNTRY_REGULATION_DISPLAY_NAMES[regulation]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               )}
 
               {form.complianceType === "WCAG Standards" ? (
@@ -1236,14 +1251,17 @@ function RequestForm(): JSX.Element {
                       : styles.totalError
                   }
                 >
-                  Total Weightage : {weightageTotal}/100
+                  <span>
+                    <strong>Selected Weightage: {weightageTotal} / 100</strong>
+                    <small>Score is normalized within selected applicable criteria.</small>
+                  </span>
                   <button
                     aria-label="Reset weightage"
                     onClick={resetWeightages}
                     title="Reset weightage"
                     type="button"
                   >
-                    R
+                    Reset
                   </button>
                 </div>
               </header>

@@ -13,7 +13,7 @@ const {
   getSuccessCriteriaForVersion,
   wcagStandards,
 } = require("../config/wcagStandards");
-const CustomMediaRules = require("./CustomMediaRules");
+const CustomAxeRules = require("./CustomAxeRules");
 const CustomWcagRules = require("./CustomWcagRules");
 const EnginePriority = require("./EnginePriority");
 
@@ -316,21 +316,43 @@ class AccessibilityTester {
       await this.waitForNetworkToSettle(page);
       await this.preparePageForScan(page, options);
       await page.addScriptTag({ content: axe.source });
+      const shouldRunCustomAxeRules = CustomAxeRules.shouldRunFor({
+        checkPoints,
+        selectedGuidelines,
+      });
 
-      const axeResults = await page.evaluate((tags) => {
-        return window.axe.run(document, {
-          resultTypes: ["violations", "incomplete", "passes"],
-          runOnly: { type: "tag", values: tags },
-        });
-      }, runOnlyTags);
+      if (shouldRunCustomAxeRules) {
+        await CustomAxeRules.configure(page);
+      }
+
+      const axeRunOptions = this.getAxeRunOptions({
+        runOnlyTags,
+        wcagVersion,
+        conformanceLevel,
+        checkPoints,
+        selectedGuidelines,
+      });
+      const axeResults = await page.evaluate((axeOptions) => {
+        return window.axe.run(document, axeOptions);
+      }, axeRunOptions);
+      const { nativeResults: nativeAxeResults, customResults: customAxeResults } =
+        shouldRunCustomAxeRules
+          ? CustomAxeRules.splitResults(axeResults)
+          : { nativeResults: axeResults, customResults: [] };
       const ibmResults = this.shouldRunIbm(wcagVersion, conformanceLevel)
         ? await this.runIbmTests(page, wcagVersion)
         : [];
       const htmlcsResults = this.shouldRunHtmlcs(wcagVersion)
         ? await this.runHtmlcsTests(page, conformanceLevel)
         : [];
-      const customMediaResults = await CustomMediaRules.scan(page);
-      const customWcagResults = await CustomWcagRules.scan(page);
+      const customReflowResults = this.shouldRunReflowScan(
+        wcagVersion,
+        conformanceLevel,
+        checkPoints,
+        selectedGuidelines,
+      )
+        ? await CustomWcagRules.scanReflow(page)
+        : [];
 
       const title = await page.title();
       const links = await this.discoverPageLinks(page, url, options);
@@ -342,7 +364,7 @@ class AccessibilityTester {
       };
       const rawIssues = [
         ...this.processAxeResults(
-          axeResults,
+          nativeAxeResults,
           wcagVersion,
           conformanceLevel,
           checkPoints,
@@ -366,7 +388,7 @@ class AccessibilityTester {
           pageContext,
         ),
         ...this.processCustomMediaResults(
-          [...customMediaResults, ...customWcagResults],
+          [...customAxeResults, ...customReflowResults],
           wcagVersion,
           conformanceLevel,
           checkPoints,
@@ -709,6 +731,60 @@ class AccessibilityTester {
     return tags;
   }
 
+  static getAxeRunOptions({
+    runOnlyTags,
+    wcagVersion,
+    conformanceLevel,
+    checkPoints,
+    selectedGuidelines,
+  }) {
+    const options = {
+      resultTypes: ["violations", "incomplete", "passes"],
+      runOnly: { type: "tag", values: runOnlyTags },
+    };
+
+    if (
+      this.shouldRunLabelInNameScan(
+        wcagVersion,
+        conformanceLevel,
+        checkPoints,
+        selectedGuidelines,
+      )
+    ) {
+      options.rules = {
+        "label-content-name-mismatch": { enabled: true },
+      };
+    }
+
+    return options;
+  }
+
+  static shouldRunLabelInNameScan(
+    wcagVersion,
+    conformanceLevel = "AA",
+    checkPoints = ["All"],
+    selectedGuidelines = ["All"],
+  ) {
+    const criterionConfig = getSuccessCriteriaForVersion(wcagVersion)["2.5.3"];
+
+    if (
+      !criterionConfig ||
+      !this.isCriterionInConformance(criterionConfig, conformanceLevel)
+    ) {
+      return false;
+    }
+
+    if (
+      selectedGuidelines &&
+      !selectedGuidelines.includes("All") &&
+      !selectedGuidelines.includes("2.5")
+    ) {
+      return false;
+    }
+
+    return !checkPoints || checkPoints.includes("All") || checkPoints.includes("Forms");
+  }
+
   static shouldRunHtmlcs(wcagVersion) {
     return HTMLCS_SUPPORTED_WCAG_VERSIONS.has(String(wcagVersion || ""));
   }
@@ -719,6 +795,36 @@ class AccessibilityTester {
     return (
       IBM_SUPPORTED_WCAG_VERSIONS.has(String(wcagVersion || "")) &&
       ["A", "AA"].includes(level)
+    );
+  }
+
+  static shouldRunReflowScan(
+    wcagVersion,
+    conformanceLevel = "AA",
+    checkPoints = ["All"],
+    selectedGuidelines = ["All"],
+  ) {
+    const criterionConfig = getSuccessCriteriaForVersion(wcagVersion)["1.4.10"];
+
+    if (
+      !criterionConfig ||
+      !this.isCriterionInConformance(criterionConfig, conformanceLevel)
+    ) {
+      return false;
+    }
+
+    if (
+      selectedGuidelines &&
+      !selectedGuidelines.includes("All") &&
+      !selectedGuidelines.includes("1.4")
+    ) {
+      return false;
+    }
+
+    return (
+      !checkPoints ||
+      checkPoints.includes("All") ||
+      checkPoints.includes("Responsive")
     );
   }
 
@@ -1477,15 +1583,16 @@ class AccessibilityTester {
     pageContext = {},
     status = "Manual Review",
   ) {
-    const selector = node.target ? node.target.join(" > ") : "";
+    const selector = this.getNodeSelector(node);
     const html = node.html || "";
+    const xpath = this.generateXPath(node);
 
     return {
       elementId: `ELEMENT-${pageContext.pageIndex || 1}-${index}`,
       elementName: selector || html.substring(0, 100) || "Document",
       html,
       selector,
-      xpath: this.generateXPath(node),
+      xpath,
       screenshot: null,
       status,
       pageUrl: pageContext.pageUrl,
@@ -1497,7 +1604,7 @@ class AccessibilityTester {
         },
         {
           type: "XPath",
-          value: this.generateXPath(node) || "N/A",
+          value: xpath || "N/A",
         },
         {
           type: "Page URL",
@@ -1918,11 +2025,18 @@ class AccessibilityTester {
   }
 
   static generateXPath(node) {
-    if (!node.target || node.target.length === 0) {
-      return "";
+    return node.xpath || "";
+  }
+
+  static getNodeSelector(node = {}) {
+    if (Array.isArray(node.target)) {
+      return (
+        node.target.find((target) => typeof target === "string" && target.trim()) ||
+        ""
+      );
     }
 
-    return "/" + node.target.join("/");
+    return typeof node.target === "string" ? node.target : "";
   }
 
   static async captureHighlightedElementScreenshots(page, issues) {

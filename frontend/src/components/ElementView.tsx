@@ -16,6 +16,7 @@ import styles from "@styles/ReportView.module.scss";
 
 interface ElementViewProps {
   activeTab: ReportIssueTab;
+  activeElementKey?: string | null;
   onElementStatusChange: (elementKey: string, status: ReportStatus) => void;
   onLocateElement: (elementKey: string) => void;
   onOpenDetail: (subject: DetailDrawerSubject) => void;
@@ -27,6 +28,7 @@ interface ElementViewProps {
 
 function ElementView({
   activeTab,
+  activeElementKey,
   onElementStatusChange,
   onLocateElement,
   onOpenDetail,
@@ -64,9 +66,15 @@ function ElementView({
             const status = group.element.status ?? "Manual Review";
             const allowedStatuses = getAllowedStatuses(status, "element");
             const editable = isStatusEditable(status, "element");
+            const isActive = activeElementKey === group.elementKey;
 
             return (
-              <div className={styles.elementGroup} key={group.elementKey}>
+              <div
+                className={`${styles.elementGroup} ${
+                  isActive ? styles.activeElementGroup : ""
+                }`}
+                key={group.elementKey}
+              >
                 <div className={styles.levelRow} role="group">
                   <span>
                     <button

@@ -116,7 +116,7 @@ function ReportSummary({
           </button>
           .
           {scoredWeightTotal !== configuredWeightTotal
-            ? ` ${scoredWeightTotal}% of configured weight was scored; remaining criteria require manual validation.`
+            ? ` ${scoredWeightTotal}% of configured weight was applicable to the score; remaining criteria were excluded until validated.`
             : ""}
           {configuredWeightTotal !== 100
             ? ` Configured total ${configuredWeightTotal}% is normalized.`

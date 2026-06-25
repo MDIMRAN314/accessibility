@@ -820,11 +820,11 @@
         "guidelineName":  "Input Modalities",
         "name":  "Label in Name",
         "level":  "A",
-        "testingMethod":  "Semi-Automated",
-        "howToTest":  "Automated scan (Axe) for mismatches between visible label and accessible name. Manual screen reader verification: activate controls by voice to confirm visible label text triggers the correct control.",
-        "automationJustification":  "Partially covered by Axe: Detects accessible name not containing visible label text.\nManual needed: Voice control tool (Dragon NaturallySpeaking or Voice Control on iOS/macOS) to confirm all controls are activatable by speaking their visible label.",
+        "testingMethod":  "Automated",
+        "howToTest":  "Automated Axe scan for UI components where the accessible name does not contain the visible label text. Review reported controls by comparing the visible label with the accessible name.",
+        "automationJustification":  "Covered by Axe rule label-content-name-mismatch: Detects controls whose accessible name does not contain the visible label text.",
         "axeRuleIds":  [
-
+                           "label-content-name-mismatch"
                        ]
     },
     {

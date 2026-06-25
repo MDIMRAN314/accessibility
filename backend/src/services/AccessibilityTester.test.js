@@ -1,4 +1,5 @@
 const AccessibilityTester = require("./AccessibilityTester");
+const CustomAxeRules = require("./CustomAxeRules");
 
 describe("AccessibilityTester WCAG engine selection", () => {
   it("uses WCAG 2.0 axe tags without 2.1 or 2.2 tags", () => {
@@ -6,6 +7,30 @@ describe("AccessibilityTester WCAG engine selection", () => {
       "wcag2a",
       "wcag2aa",
     ]);
+  });
+
+  it("enables axe label-in-name rule when WCAG 2.5.3 is in scope", () => {
+    expect(
+      AccessibilityTester.shouldRunLabelInNameScan("2.1", "A", ["Forms"], [
+        "2.5",
+      ]),
+    ).toBe(true);
+    expect(
+      AccessibilityTester.getAxeRunOptions({
+        runOnlyTags: ["wcag2a", "wcag21a"],
+        wcagVersion: "2.1",
+        conformanceLevel: "A",
+        checkPoints: ["Forms"],
+        selectedGuidelines: ["2.5"],
+      }).rules,
+    ).toEqual({
+      "label-content-name-mismatch": { enabled: true },
+    });
+    expect(
+      AccessibilityTester.shouldRunLabelInNameScan("2.0", "A", ["Forms"], [
+        "2.5",
+      ]),
+    ).toBe(false);
   });
 
   it("runs HTMLCS for WCAG 2.0 and 2.1, but not 2.2", () => {
@@ -20,6 +45,43 @@ describe("AccessibilityTester WCAG engine selection", () => {
     expect(AccessibilityTester.shouldRunIbm("2.2", "AA")).toBe(true);
     expect(AccessibilityTester.shouldRunIbm("2.2", "AAA")).toBe(false);
     expect(AccessibilityTester.shouldRunIbm("3.0", "AA")).toBe(false);
+  });
+
+  it("runs custom axe DOM rules only for matching checkpoints and guidelines", () => {
+    expect(
+      CustomAxeRules.shouldRunFor({
+        checkPoints: ["Video/Audio"],
+        selectedGuidelines: ["1.2"],
+      }),
+    ).toBe(true);
+    expect(
+      CustomAxeRules.shouldRunFor({
+        checkPoints: ["Images"],
+        selectedGuidelines: ["1.2"],
+      }),
+    ).toBe(false);
+    expect(
+      CustomAxeRules.shouldRunFor({
+        checkPoints: ["Video/Audio"],
+        selectedGuidelines: ["1.4"],
+      }),
+    ).toBe(false);
+  });
+
+  it("runs reflow scan only when WCAG 1.4.10 is in scope", () => {
+    expect(
+      AccessibilityTester.shouldRunReflowScan("2.2", "AA", ["Responsive"], [
+        "1.4",
+      ]),
+    ).toBe(true);
+    expect(
+      AccessibilityTester.shouldRunReflowScan("2.0", "AA", ["Responsive"], [
+        "1.4",
+      ]),
+    ).toBe(false);
+    expect(
+      AccessibilityTester.shouldRunReflowScan("2.2", "AA", ["Forms"], ["1.4"]),
+    ).toBe(false);
   });
 
   it("maps WCAG versions to IBM Equal Access policies", () => {
@@ -54,6 +116,88 @@ describe("AccessibilityTester WCAG engine selection", () => {
         "2.1",
       ),
     ).toEqual([]);
+  });
+
+  it("normalizes axe label-in-name findings as automated WCAG 2.5.3 form issues", () => {
+    const issues = AccessibilityTester.processAxeResults(
+      {
+        violations: [
+          {
+            id: "label-content-name-mismatch",
+            impact: "serious",
+            description:
+              "Ensure that elements labelled through their content must have their visible text as part of their accessible name",
+            help: "Elements must have their visible text as part of their accessible name",
+            helpUrl:
+              "https://dequeuniversity.com/rules/axe/4.7/label-content-name-mismatch",
+            tags: ["cat.semantics", "wcag21a", "wcag253", "experimental"],
+            nodes: [
+              {
+                target: ["button"],
+                html: '<button aria-label="Submit form">Send</button>',
+                failureSummary:
+                  "Fix any of the following: Text inside the element is not included in the accessible name",
+              },
+            ],
+          },
+        ],
+        incomplete: [],
+        passes: [],
+      },
+      "2.1",
+      "A",
+      ["Forms"],
+      ["2.5"],
+      {
+        pageUrl: "https://example.com",
+        pageTitle: "Example",
+        pageDepth: 0,
+        pageIndex: 1,
+      },
+    );
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      criterion: "2.5.3",
+      principle: "Operable",
+      guideline: "2.5",
+      status: "Fail",
+      type: "Automated",
+      engine: "axe-core",
+    });
+  });
+
+  it("keeps axe locators as CSS selectors without generating fake XPath", () => {
+    const element = AccessibilityTester.mapNodeToElement(
+      {
+        target: ["main form button[type=\"submit\"]"],
+        html: '<button type="submit">Send</button>',
+      },
+      0,
+      {
+        pageUrl: "https://example.com",
+        pageTitle: "Example",
+        pageIndex: 1,
+      },
+      "Fail",
+    );
+
+    expect(element.selector).toBe('main form button[type="submit"]');
+    expect(element.xpath).toBe("");
+    expect(element.locators).toEqual([
+      {
+        type: "CSS Selector",
+        value: 'main form button[type="submit"]',
+      },
+      {
+        type: "XPath",
+        value: "N/A",
+      },
+      {
+        type: "Page URL",
+        value: "https://example.com",
+      },
+    ]);
   });
 
   it("creates suggested fix text that is not a repeat of the issue description", () => {
@@ -221,5 +365,50 @@ describe("AccessibilityTester WCAG engine selection", () => {
       engine: "custom-wcag-rules",
       decisionEngine: "custom-wcag-rules",
     });
+  });
+
+  it("extracts custom axe collector findings before native axe normalization", () => {
+    const finding = {
+      engine: "custom-wcag-rules",
+      id: "input-purpose-missing-autocomplete",
+      criterion: "1.3.5",
+      description: 'Input appears to collect email but does not include autocomplete="email".',
+      recommendation:
+        'Add autocomplete="email" so browsers and assistive technologies can identify the input purpose.',
+      severity: "Moderate",
+      status: "Warning",
+      type: "Automated",
+      checkpoint: "Forms",
+      tags: ["wcag21aa", "wcag135", "forms", "autocomplete"],
+      element: {
+        selector: "input#email",
+        html: '<input id="email" type="email">',
+      },
+    };
+    const { nativeResults, customResults } = CustomAxeRules.splitResults({
+      violations: [
+        {
+          id: CustomAxeRules.DOM_RULE_ID,
+          nodes: [
+            {
+              any: [{ data: { findings: [finding] } }],
+              all: [],
+              none: [],
+            },
+          ],
+        },
+        {
+          id: "button-name",
+          nodes: [],
+          tags: ["wcag2a", "wcag412"],
+        },
+      ],
+      incomplete: [],
+      passes: [],
+    });
+
+    expect(customResults).toEqual([finding]);
+    expect(nativeResults.violations).toHaveLength(1);
+    expect(nativeResults.violations[0].id).toBe("button-name");
   });
 });

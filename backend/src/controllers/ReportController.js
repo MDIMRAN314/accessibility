@@ -18,6 +18,11 @@ const GUIDELINE_SCAN_OPTIONS = {
   autoScroll: true,
   includeSitemap: false,
 };
+const CONFORMANCE_LEVEL_RANK = {
+  A: 1,
+  AA: 2,
+  AAA: 3,
+};
 
 class ReportController {
   static async generateReport(req, res) {
@@ -133,6 +138,10 @@ class ReportController {
             principles: ReportController.organizePrinciples(
               issues,
               request.wcagVersion || "2.2",
+              {
+                conformanceLevel: request.conformanceLevel || "AA",
+                selectedGuidelines: request.guidelines,
+              },
             ),
           });
 
@@ -183,6 +192,10 @@ class ReportController {
           principles: ReportController.organizePrinciples(
             issues,
             request.wcagVersion || "2.2",
+            {
+              conformanceLevel: request.conformanceLevel || "AA",
+              selectedGuidelines: request.guidelines,
+            },
           ),
         });
 
@@ -300,7 +313,11 @@ class ReportController {
     }
   }
 
-  static organizePrinciples(issues, wcagVersion) {
+  static organizePrinciples(
+    issues,
+    wcagVersion,
+    { conformanceLevel = "AA", selectedGuidelines = ["All"] } = {},
+  ) {
     const principles = [
       { name: "Perceivable", guidelines: [] },
       { name: "Operable", guidelines: [] },
@@ -310,17 +327,26 @@ class ReportController {
 
     const wcagConfig = wcagStandards[wcagVersion] || wcagStandards["2.2"];
     const versionCriteria = getSuccessCriteriaForVersion(wcagVersion);
+    const selectedGuidelineSet = new Set(selectedGuidelines || ["All"]);
+    const includeAllGuidelines =
+      selectedGuidelineSet.size === 0 || selectedGuidelineSet.has("All");
 
     principles.forEach((principle) => {
       principle.guidelines = Object.entries(wcagConfig.guidelines)
         .filter(([, config]) => config.principle === principle.name)
-        .map(([guidelineId, config]) => ({
-          name: `${guidelineId} - ${config.name}`,
-          status: ReportController.deriveStatus(
-            issues.filter((issue) => issue.criterion.startsWith(`${guidelineId}.`)),
-          ),
-          criteria: Object.entries(versionCriteria)
+        .filter(
+          ([guidelineId]) =>
+            includeAllGuidelines || selectedGuidelineSet.has(guidelineId),
+        )
+        .map(([guidelineId, config]) => {
+          const criteria = Object.entries(versionCriteria)
             .filter(([, criteria]) => criteria.guideline === guidelineId)
+            .filter(([, criteria]) =>
+              ReportController.isCriterionInConformance(
+                criteria,
+                conformanceLevel,
+              ),
+            )
             .map(([criteriaId, criteria]) => {
               const criteriaIssues = issues.filter(
                 (issue) => issue.criterion === criteriaId,
@@ -334,8 +360,17 @@ class ReportController {
                 type: criteria.type || config.type || "Manual",
                 issues: criteriaIssues,
               };
-            }),
-        }));
+            });
+
+          return {
+            name: `${guidelineId} - ${config.name}`,
+            status: ReportController.deriveStatus(
+              criteria.flatMap((criterion) => criterion.issues || []),
+            ),
+            criteria,
+          };
+        })
+        .filter((guideline) => guideline.criteria.length > 0);
       principle.status = ReportController.deriveStatus(
         principle.guidelines.flatMap((guideline) =>
           guideline.criteria.flatMap((criterion) => criterion.issues || []),
@@ -344,6 +379,21 @@ class ReportController {
     });
 
     return principles;
+  }
+
+  static isCriterionInConformance(criterionConfig, conformanceLevel = "AA") {
+    if (!criterionConfig?.level) {
+      return true;
+    }
+
+    const requestedLevel =
+      CONFORMANCE_LEVEL_RANK[String(conformanceLevel || "AA").toUpperCase()] ||
+      CONFORMANCE_LEVEL_RANK.AA;
+    const criterionLevel =
+      CONFORMANCE_LEVEL_RANK[String(criterionConfig.level).toUpperCase()] ||
+      requestedLevel;
+
+    return criterionLevel <= requestedLevel;
   }
 
   static deriveStatus(issues) {
@@ -503,6 +553,13 @@ class ReportController {
         principles: ReportController.organizePrinciples(
           reportWithStatus.issues,
           reportWithStatus.wcagVersion || "2.2",
+          {
+            conformanceLevel:
+              reportWithStatus.requestDetails?.conformanceLevel ||
+              reportWithStatus.conformanceLevel ||
+              "AA",
+            selectedGuidelines: reportWithStatus.requestDetails?.guidelines,
+          },
         ),
         scoreHistory: [
           ...(reportWithStatus.scoreHistory || []),
@@ -565,6 +622,13 @@ class ReportController {
         principles: ReportController.organizePrinciples(
           reportWithStatus.issues,
           reportWithStatus.wcagVersion || "2.2",
+          {
+            conformanceLevel:
+              reportWithStatus.requestDetails?.conformanceLevel ||
+              reportWithStatus.conformanceLevel ||
+              "AA",
+            selectedGuidelines: reportWithStatus.requestDetails?.guidelines,
+          },
         ),
         scoreHistory: [
           ...(reportWithStatus.scoreHistory || []),

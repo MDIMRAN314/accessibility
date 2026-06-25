@@ -877,6 +877,13 @@
   display: grid;
 }
 
+.activeElementGroup {
+  .levelRow {
+    background: #edf8f8;
+    box-shadow: inset 4px 0 0 #167a7f;
+  }
+}
+
 .childGroup {
   .levelRow {
     padding-left: 28px;

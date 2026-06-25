@@ -442,24 +442,9 @@ const createDefaultWeightages = (wcagVersion, guidelines) => {
   );
   const guidelineIds =
     requestedGuidelines.length > 0 ? requestedGuidelines : versionGuidelineIds;
-  const totalBase = guidelineIds.reduce(
-    (total, guidelineId) => total + Number(BASE_WEIGHTAGES[guidelineId] || 0),
-    0,
-  );
 
-  if (totalBase <= 0) {
-    return {};
-  }
-
-  let runningTotal = 0;
-  return guidelineIds.reduce((weightages, guidelineId, index) => {
-    const value =
-      index === guidelineIds.length - 1
-        ? 100 - runningTotal
-        : Math.round((BASE_WEIGHTAGES[guidelineId] / totalBase) * 100);
-
-    runningTotal += value;
-    weightages[guidelineId] = value;
+  return guidelineIds.reduce((weightages, guidelineId) => {
+    weightages[guidelineId] = Number(BASE_WEIGHTAGES[guidelineId] || 0);
     return weightages;
   }, {});
 };
