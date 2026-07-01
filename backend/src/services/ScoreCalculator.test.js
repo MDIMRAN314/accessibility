@@ -78,6 +78,41 @@ describe("ScoreCalculator", () => {
     expect(result.scoreBreakdown.normalizationWeightTotal).toBe(10);
   });
 
+  it("normalizes to 100 percent when configured weight total exceeds 100", () => {
+    const result = ScoreCalculator.calculate({
+      wcagVersion: "2.2",
+      requestDetails: {
+        successCriteriaWeightage: {
+          "1.1": 100,
+          "1.2": 80,
+          "2.1": 70,
+        },
+      },
+      issues: [
+        {
+          criterion: "1.1.1",
+          status: "Pass",
+          type: "Automated",
+        },
+        {
+          criterion: "1.2.1",
+          status: "Pass",
+          type: "Manual",
+        },
+        {
+          criterion: "2.1.1",
+          status: "Fail",
+          type: "Semi-Automated",
+        },
+      ],
+    });
+
+    expect(result.accessibilityScore).toBe(72);
+    expect(result.scoreBreakdown.configuredWeightTotal).toBe(250);
+    expect(result.scoreBreakdown.normalizationWeightTotal).toBe(250);
+    expect(result.scoreBreakdown.rawComplianceScore).toBe(180);
+  });
+
   it("excludes manual review states from success criteria denominators", () => {
     const result = ScoreCalculator.calculate({
       wcagVersion: "2.2",

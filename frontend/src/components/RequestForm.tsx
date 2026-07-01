@@ -623,22 +623,12 @@ function RequestForm(): JSX.Element {
   const handleWeightageChange = (guidelineId: string, value: number) => {
     setForm((current) => {
       const nextValue = clampWeightage(value);
-      const otherTotal = Object.entries(
-        current.successCriteriaWeightage,
-      ).reduce(
-        (total, [id, weightage]) =>
-          id === guidelineId
-            ? total
-            : total + clampWeightage(Number(weightage)),
-        0,
-      );
-      const maxAllowed = Math.max(0, 100 - otherTotal);
 
       return {
         ...current,
         successCriteriaWeightage: {
           ...current.successCriteriaWeightage,
-          [guidelineId]: Math.min(nextValue, maxAllowed),
+          [guidelineId]: nextValue,
         },
       };
     });
@@ -686,10 +676,10 @@ function RequestForm(): JSX.Element {
 
     if (
       form.taskType === "Guidelines Check" &&
-      (weightageTotal <= 0 || weightageTotal > 100)
+      weightageTotal <= 0
     ) {
       nextErrors.successCriteriaWeightage =
-        "Total weightage must be greater than 0 and no more than 100";
+        "Total weightage must be greater than 0";
     }
 
     if (isScreenReaderTranscription && form.checkPoints.length === 0) {
@@ -1246,14 +1236,14 @@ function RequestForm(): JSX.Element {
                 <h3>Success Criteria Weightage</h3>
                 <div
                   className={
-                    weightageTotal > 0 && weightageTotal <= 100
+                    weightageTotal > 0
                       ? styles.totalOk
                       : styles.totalError
                   }
                 >
                   <span>
-                    <strong>Selected Weightage: {weightageTotal} / 100</strong>
-                    <small>Score is normalized within selected applicable criteria.</small>
+                    <strong>Total Selected Weightage: {weightageTotal}</strong>
+                    <small>Overall score is normalized to 100%.</small>
                   </span>
                   <button
                     aria-label="Reset weightage"
@@ -1274,16 +1264,12 @@ function RequestForm(): JSX.Element {
                 <div className={styles.tableHeader}>
                   <span>Principle</span>
                   <span>Guidelines</span>
-                  <span>Weightage in %</span>
+                  <span>Weightage (0-100)</span>
                 </div>
                 {groupedGuidelines.map((group) =>
                   group.guidelines.map((guideline, index) => {
                     const currentWeightage =
                       form.successCriteriaWeightage[guideline.id] ?? 0;
-                    const maxWeightage = Math.max(
-                      0,
-                      100 - (weightageTotal - currentWeightage),
-                    );
 
                     return (
                       <div className={styles.tableRow} key={guideline.id}>
@@ -1298,7 +1284,7 @@ function RequestForm(): JSX.Element {
                         <span>
                           <input
                             aria-label={`Weightage for ${guideline.name}`}
-                            max={maxWeightage}
+                            max={100}
                             min={0}
                             onChange={(event) =>
                               handleWeightageChange(

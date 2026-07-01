@@ -846,7 +846,7 @@ class ReportController {
       report.scoreBreakdown?.scoredWeightTotal ?? configuredWeightTotal;
     const scoringNote =
       scoredWeightTotal !== configuredWeightTotal
-        ? `${scoredWeightTotal}% of configured weight was scored automatically; remaining criteria require manual validation.`
+        ? `${scoredWeightTotal} of configured weight was scored automatically; remaining criteria require manual validation.`
         : "Score is based on automatically assessed success criteria weightage.";
     const tabCounts = [
       ["All Guidelines", reportableIssues.length],
@@ -874,7 +874,7 @@ class ReportController {
         ([guidelineId, weight]) => `
           <tr>
             <td>${escapeHtml(guidelineId)}</td>
-            <td>${escapeHtml(weight)}%</td>
+            <td>${escapeHtml(weight)}</td>
           </tr>
         `,
       )

@@ -116,10 +116,10 @@ function ReportSummary({
           </button>
           .
           {scoredWeightTotal !== configuredWeightTotal
-            ? ` ${scoredWeightTotal}% of configured weight was applicable to the score; remaining criteria were excluded until validated.`
+            ? ` ${scoredWeightTotal} of configured weight was applicable to the score; remaining criteria were excluded until validated.`
             : ""}
           {configuredWeightTotal !== 100
-            ? ` Configured total ${configuredWeightTotal}% is normalized.`
+            ? ` Configured total weight ${configuredWeightTotal} is normalized.`
             : ""}
         </p>
         <ul className={styles.scoreLegend}>

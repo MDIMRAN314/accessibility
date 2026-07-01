@@ -993,7 +993,7 @@ function RequestDetailsDrawer({ onClose, report }: RequestDetailsDrawerProps): J
             {Object.entries(details.successCriteriaWeightage).map(([guidelineId, weight]) => (
               <div key={guidelineId}>
                 <dt>{guidelineId}</dt>
-                <dd>{weight}%</dd>
+                <dd>{weight}</dd>
               </div>
             ))}
           </dl>
