@@ -97,9 +97,10 @@ class ScoreCalculator {
       (total, guideline) => total + guideline.complianceScore,
       0,
     );
+    const normalizationWeightTotal = scoredWeightTotal;
     const normalizedScore =
-      configuredWeightTotal > 0
-        ? Math.round((rawComplianceScore / configuredWeightTotal) * 100)
+      normalizationWeightTotal > 0
+        ? Math.round((rawComplianceScore / normalizationWeightTotal) * 100)
         : 0;
 
     return {
@@ -111,7 +112,7 @@ class ScoreCalculator {
           configuredWeightTotal - scoredWeightTotal,
           0,
         ),
-        normalizationWeightTotal: configuredWeightTotal,
+        normalizationWeightTotal,
         rawComplianceScore,
         normalizedScore,
         guidelines,

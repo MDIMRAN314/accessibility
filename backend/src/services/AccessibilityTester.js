@@ -782,7 +782,13 @@ class AccessibilityTester {
       return false;
     }
 
-    return !checkPoints || checkPoints.includes("All") || checkPoints.includes("Forms");
+    return (
+      !checkPoints ||
+      checkPoints.includes("All") ||
+      checkPoints.includes("Forms") ||
+      checkPoints.includes("Link/Buttons") ||
+      checkPoints.includes("Links/Buttons")
+    );
   }
 
   static shouldRunHtmlcs(wcagVersion) {
@@ -1972,8 +1978,28 @@ class AccessibilityTester {
       return true;
     }
 
-    const checkpoint = this.classifyCheckpoint(result);
-    return selectedCheckPoints.includes(checkpoint);
+    const checkpoints = this.classifyCheckpoints(result);
+    return checkpoints.some((checkpoint) =>
+      selectedCheckPoints.includes(checkpoint),
+    );
+  }
+
+  static classifyCheckpoints(result) {
+    const primaryCheckpoint = this.classifyCheckpoint(result);
+    const checkpoints = new Set([primaryCheckpoint]);
+    const text = this.getClassificationText(result);
+
+    if (
+      result.id === "label-content-name-mismatch" ||
+      text.includes("wcag253") ||
+      text.includes("label in name")
+    ) {
+      checkpoints.add("Forms");
+      checkpoints.add("Link/Buttons");
+      checkpoints.add("Links/Buttons");
+    }
+
+    return Array.from(checkpoints);
   }
 
   static classifyCheckpoint(result) {
@@ -1981,14 +2007,7 @@ class AccessibilityTester {
       return result.checkpoint;
     }
 
-    const text = [
-      result.id,
-      result.help,
-      result.description,
-      ...(result.tags || []),
-    ]
-      .join(" ")
-      .toLowerCase();
+    const text = this.getClassificationText(result);
 
     if (text.includes("heading")) return "Headings";
     if (text.includes("landmark") || text.includes("region"))
@@ -2022,6 +2041,17 @@ class AccessibilityTester {
     if (text.includes("hidden")) return "Hidden Content";
     if (text.includes("language") || text.includes("lang")) return "Language";
     return "Best Practices";
+  }
+
+  static getClassificationText(result = {}) {
+    return [
+      result.id,
+      result.help,
+      result.description,
+      ...(result.tags || []),
+    ]
+      .join(" ")
+      .toLowerCase();
   }
 
   static generateXPath(node) {

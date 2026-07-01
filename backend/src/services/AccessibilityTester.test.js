@@ -27,6 +27,14 @@ describe("AccessibilityTester WCAG engine selection", () => {
       "label-content-name-mismatch": { enabled: true },
     });
     expect(
+      AccessibilityTester.shouldRunLabelInNameScan(
+        "2.1",
+        "A",
+        ["Link/Buttons"],
+        ["2.5"],
+      ),
+    ).toBe(true);
+    expect(
       AccessibilityTester.shouldRunLabelInNameScan("2.0", "A", ["Forms"], [
         "2.5",
       ]),
@@ -160,6 +168,54 @@ describe("AccessibilityTester WCAG engine selection", () => {
     expect(issues[0]).toMatchObject({
       criterion: "2.5.3",
       principle: "Operable",
+      guideline: "2.5",
+      status: "Fail",
+      type: "Automated",
+      engine: "axe-core",
+    });
+  });
+
+  it("keeps axe label-in-name findings in link and button checkpoint scans", () => {
+    const issues = AccessibilityTester.processAxeResults(
+      {
+        violations: [
+          {
+            id: "label-content-name-mismatch",
+            impact: "serious",
+            description:
+              "Ensure that elements labelled through their content must have their visible text as part of their accessible name",
+            help: "Elements must have their visible text as part of their accessible name",
+            helpUrl:
+              "https://dequeuniversity.com/rules/axe/4.7/label-content-name-mismatch",
+            tags: ["cat.semantics", "wcag21a", "wcag253", "experimental"],
+            nodes: [
+              {
+                target: ["button"],
+                html: '<button aria-label="Submit form">Send</button>',
+                failureSummary:
+                  "Fix any of the following: Text inside the element is not included in the accessible name",
+              },
+            ],
+          },
+        ],
+        incomplete: [],
+        passes: [],
+      },
+      "2.1",
+      "A",
+      ["Link/Buttons"],
+      ["2.5"],
+      {
+        pageUrl: "https://example.com",
+        pageTitle: "Example",
+        pageDepth: 0,
+        pageIndex: 1,
+      },
+    );
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      criterion: "2.5.3",
       guideline: "2.5",
       status: "Fail",
       type: "Automated",
