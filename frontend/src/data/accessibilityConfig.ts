@@ -1,4 +1,6 @@
 import type {
+  AccessibilityEngineOptionKey,
+  AccessibilityEngineOptions,
   CheckPoint,
   ConformanceLevel,
   CountryRegulation,
@@ -29,6 +31,28 @@ export const SCREEN_READERS: ScreenReader[] = ["JAWS"];
 export const WCAG_VERSIONS: WcagVersion[] = ["2.0", "2.1", "2.2"];
 
 export const CONFORMANCE_LEVELS: ConformanceLevel[] = ["A", "AA", "AAA"];
+
+interface ScanEngineOption {
+  key: AccessibilityEngineOptionKey;
+  label: string;
+  availableInRequestForm: boolean;
+}
+
+export const DEFAULT_ENGINE_OPTIONS: AccessibilityEngineOptions = {
+  ibmEqualAccess: true,
+};
+
+export const SCAN_ENGINE_OPTIONS: ScanEngineOption[] = [
+  {
+    key: "ibmEqualAccess",
+    label: "IBM Equal Access",
+    availableInRequestForm: true,
+  },
+];
+
+export const REQUEST_FORM_ENGINE_OPTIONS = SCAN_ENGINE_OPTIONS.filter(
+  (option) => option.availableInRequestForm,
+);
 
 export const WEB_CHECK_POINTS: CheckPoint[] = [
   "All",

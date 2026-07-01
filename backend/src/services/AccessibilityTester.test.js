@@ -55,6 +55,19 @@ describe("AccessibilityTester WCAG engine selection", () => {
     expect(AccessibilityTester.shouldRunIbm("3.0", "AA")).toBe(false);
   });
 
+  it("skips IBM Equal Access when the request engine option disables it", () => {
+    expect(
+      AccessibilityTester.shouldRunIbm("2.2", "AA", {
+        ibmEqualAccess: false,
+      }),
+    ).toBe(false);
+    expect(
+      AccessibilityTester.normalizeScanOptions({
+        engineOptions: { ibmEqualAccess: false },
+      }).engineOptions,
+    ).toEqual({ ibmEqualAccess: false });
+  });
+
   it("runs custom axe DOM rules only for matching checkpoints and guidelines", () => {
     expect(
       CustomAxeRules.shouldRunFor({

@@ -113,6 +113,12 @@ export type ReportIssueTab =
   | "manual"
   | "best-practices";
 
+export interface AccessibilityEngineOptions {
+  ibmEqualAccess: boolean;
+}
+
+export type AccessibilityEngineOptionKey = keyof AccessibilityEngineOptions;
+
 export interface GuidelineConfig {
   id: GuidelineId;
   name: string;
@@ -148,6 +154,7 @@ export interface AccessibilityRequestPayload {
   checkPoints: CheckPoint[];
   guidelines: SelectedGuideline[];
   successCriteriaWeightage: Record<string, number>;
+  engineOptions?: AccessibilityEngineOptions;
   sourceFileName?: string;
   sourceFileSize?: number;
   sourceFileMimeType?: string;

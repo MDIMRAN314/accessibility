@@ -13,8 +13,10 @@ import {
   COUNTRY_REGULATIONS,
   COUNTRY_REGULATION_DISPLAY_NAMES,
   DEFAULT_COUNTRY_REGULATION,
+  DEFAULT_ENGINE_OPTIONS,
   PDF_CHECK_POINTS,
   PDF_STANDARDS,
+  REQUEST_FORM_ENGINE_OPTIONS,
   REQUEST_TYPES,
   SCREEN_READERS,
   TASK_TYPES,
@@ -35,6 +37,7 @@ import {
   getVeraPdfStatusFromError,
 } from "@/services/api";
 import type {
+  AccessibilityEngineOptionKey,
   AccessibilityRequestPayload,
   CheckPoint,
   ComplianceType,
@@ -70,6 +73,7 @@ const initialForm: AccessibilityRequestPayload = {
   checkPoints: CHECK_POINTS,
   guidelines: ["All"],
   successCriteriaWeightage: createDefaultWeightages(initialGuidelines),
+  engineOptions: DEFAULT_ENGINE_OPTIONS,
 };
 
 const validateUrl = (url: string): string | undefined => {
@@ -215,6 +219,10 @@ function RequestForm(): JSX.Element {
   );
 
   const weightageTotal = getWeightageTotal(form.successCriteriaWeightage);
+  const showEngineOptions =
+    REQUEST_FORM_ENGINE_OPTIONS.length > 0 &&
+    !isPdfRequest &&
+    form.taskType === "Guidelines Check";
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -289,6 +297,8 @@ function RequestForm(): JSX.Element {
       checkPoints: nextCheckPoints,
       guidelines: ["All"],
       successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+      engineOptions:
+        requestType === "PDF" ? undefined : DEFAULT_ENGINE_OPTIONS,
     });
 
     if (requestType !== "PDF") {
@@ -313,6 +323,7 @@ function RequestForm(): JSX.Element {
         checkPoints: CHECK_POINTS,
         guidelines: [],
         successCriteriaWeightage: {},
+        engineOptions: DEFAULT_ENGINE_OPTIONS,
       });
       return;
     }
@@ -329,6 +340,7 @@ function RequestForm(): JSX.Element {
         checkPoints: CHECK_POINTS,
         guidelines: ["All"],
         successCriteriaWeightage: createDefaultWeightages(visibleGuidelines),
+        engineOptions: DEFAULT_ENGINE_OPTIONS,
       });
       return;
     }
@@ -635,6 +647,23 @@ function RequestForm(): JSX.Element {
     setErrors((current) => ({ ...current, successCriteriaWeightage: "" }));
   };
 
+  const handleEngineOptionToggle = (key: AccessibilityEngineOptionKey) => {
+    setForm((current) => {
+      const currentEngineOptions = {
+        ...DEFAULT_ENGINE_OPTIONS,
+        ...current.engineOptions,
+      };
+
+      return {
+        ...current,
+        engineOptions: {
+          ...currentEngineOptions,
+          [key]: !currentEngineOptions[key],
+        },
+      };
+    });
+  };
+
   const resetWeightages = () => {
     patchForm({
       successCriteriaWeightage: createDefaultWeightages(selectedGuidelines),
@@ -775,6 +804,10 @@ function RequestForm(): JSX.Element {
         successCriteriaWeightage: isScreenReaderTranscription
           ? {}
           : form.successCriteriaWeightage,
+        engineOptions:
+          !isPdfRequest && form.taskType === "Guidelines Check"
+            ? { ...DEFAULT_ENGINE_OPTIONS, ...form.engineOptions }
+            : undefined,
         countryRegulation:
           !isPdfRequest && form.complianceType === "Country Regulations"
             ? (form.countryRegulation ?? DEFAULT_COUNTRY_REGULATION)
@@ -824,18 +857,23 @@ function RequestForm(): JSX.Element {
           <p className={styles.kicker}>Accessibility Workbench</p>
           <h2>Create accessibility request</h2>
         </div>
-        <div className={styles.headerActions}>
-          <button
-            type="button"
-            title="Request details"
-            aria-label="Request details"
-          >
-            i
-          </button>
-          <button type="button" title="Save" aria-label="Save">
-            S
-          </button>
-        </div>
+        {showEngineOptions ? (
+          <div className={styles.headerActions} aria-label="Scan engines">
+            {REQUEST_FORM_ENGINE_OPTIONS.map((option) => (
+              <label className={styles.headerEngineToggle} key={option.key}>
+                <input
+                  checked={
+                    form.engineOptions?.[option.key] ??
+                    DEFAULT_ENGINE_OPTIONS[option.key]
+                  }
+                  onChange={() => handleEngineOptionToggle(option.key)}
+                  type="checkbox"
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        ) : null}
       </header>
 
       <form className={styles.formShell} onSubmit={handleSubmit} ref={formRef}>

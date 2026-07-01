@@ -13,6 +13,11 @@ const {
   getSuccessCriteriaForVersion,
   wcagStandards,
 } = require("../config/wcagStandards");
+const {
+  ENGINE_KEYS,
+  isEngineEnabled,
+  normalizeEngineOptions,
+} = require("../config/scanEngines");
 const CustomAxeRules = require("./CustomAxeRules");
 const CustomWcagRules = require("./CustomWcagRules");
 const EnginePriority = require("./EnginePriority");
@@ -242,8 +247,12 @@ class AccessibilityTester {
     }
   }
 
-  static normalizeScanOptions() {
-    return { ...DEFAULT_SCAN_OPTIONS };
+  static normalizeScanOptions(scanOptions = {}) {
+    return {
+      ...DEFAULT_SCAN_OPTIONS,
+      ...scanOptions,
+      engineOptions: normalizeEngineOptions(scanOptions.engineOptions),
+    };
   }
 
   static clampNumber(value, minimum, maximum, fallback) {
@@ -339,7 +348,11 @@ class AccessibilityTester {
         shouldRunCustomAxeRules
           ? CustomAxeRules.splitResults(axeResults)
           : { nativeResults: axeResults, customResults: [] };
-      const ibmResults = this.shouldRunIbm(wcagVersion, conformanceLevel)
+      const ibmResults = this.shouldRunIbm(
+        wcagVersion,
+        conformanceLevel,
+        options.engineOptions,
+      )
         ? await this.runIbmTests(page, wcagVersion)
         : [];
       const htmlcsResults = this.shouldRunHtmlcs(wcagVersion)
@@ -795,10 +808,15 @@ class AccessibilityTester {
     return HTMLCS_SUPPORTED_WCAG_VERSIONS.has(String(wcagVersion || ""));
   }
 
-  static shouldRunIbm(wcagVersion, conformanceLevel = "AA") {
+  static shouldRunIbm(
+    wcagVersion,
+    conformanceLevel = "AA",
+    engineOptions = {},
+  ) {
     const level = String(conformanceLevel || "AA").toUpperCase();
 
     return (
+      isEngineEnabled(ENGINE_KEYS.IBM_EQUAL_ACCESS, engineOptions) &&
       IBM_SUPPORTED_WCAG_VERSIONS.has(String(wcagVersion || "")) &&
       ["A", "AA"].includes(level)
     );

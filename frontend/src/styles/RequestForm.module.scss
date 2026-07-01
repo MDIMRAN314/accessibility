@@ -28,33 +28,30 @@
   }
 
   .headerActions {
+    align-items: center;
     display: flex;
     gap: 8px;
+    justify-content: flex-end;
 
-    button {
+    .headerEngineToggle {
       align-items: center;
-      background: #ffffff;
+      background: #fbfcfe;
       border: 1px solid #cfd6e3;
       border-radius: 6px;
-      color: #334155;
+      color: #202734;
       cursor: pointer;
       display: inline-flex;
+      font-size: 13px;
       font-weight: 700;
-      height: 34px;
-      justify-content: center;
-      width: 34px;
+      gap: 8px;
+      min-height: 34px;
+      padding: 6px 10px;
+      white-space: nowrap;
 
-      &:last-child {
-        opacity: 0;
-        transform: translateX(-6px);
-        transition: opacity 140ms ease, transform 140ms ease;
-      }
-    }
-
-    &:hover {
-      button:last-child {
-        opacity: 1;
-        transform: translateX(0);
+      input {
+        accent-color: #167a7f;
+        height: 15px;
+        width: 15px;
       }
     }
   }
@@ -192,25 +189,6 @@
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
       color: #167a7f;
     }
-  }
-}
-
-.toggleField {
-  align-items: center;
-  border: 1px solid #cfd6e3;
-  border-radius: 6px;
-  color: #202734;
-  display: flex;
-  font-size: 13px;
-  font-weight: 700;
-  gap: 8px;
-  min-height: 34px;
-  padding: 8px 10px;
-
-  input {
-    accent-color: #167a7f;
-    height: 16px;
-    width: 16px;
   }
 }
 

@@ -115,6 +115,10 @@ const AccessibilityRequestSchema = new mongoose.Schema({
     of: Number,
     default: {},
   },
+  engineOptions: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
   sourceFileName: String,
   sourceFilePath: String,
   sourceFileMimeType: String,

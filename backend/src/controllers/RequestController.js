@@ -5,6 +5,7 @@ const {
   getCountryComplianceAlignment,
   normalizeCountryRegulation,
 } = require("../config/countryCompliance");
+const { normalizeEngineOptions } = require("../config/scanEngines");
 const { getSuccessCriteriaForVersion } = require("../config/wcagStandards");
 
 const SUPPORTED_WCAG_VERSIONS = ["2.0", "2.1", "2.2"];
@@ -53,6 +54,7 @@ class RequestController {
         checkPoints = ["All"],
         guidelines = [],
         successCriteriaWeightage = {},
+        engineOptions = {},
       } = body;
       const normalizedRequestType = SUPPORTED_REQUEST_TYPES.includes(requestType)
         ? requestType
@@ -115,6 +117,10 @@ class RequestController {
         : String(url || "").trim();
       const normalizedCheckPoints = normalizeArrayField(checkPoints, ["All"]);
       const normalizedGuidelines = normalizeArrayField(guidelines, []);
+      const normalizedEngineOptions =
+        !isPdfRequest && normalizedTaskType === "Guidelines Check"
+          ? normalizeEngineOptions(engineOptions)
+          : undefined;
 
       if (
         normalizedComplianceType === "Country Regulations" &&
@@ -208,6 +214,7 @@ class RequestController {
                 normalizedWcagVersion,
                 normalizedGuidelines,
               ),
+        engineOptions: normalizedEngineOptions,
         sourceFileName: uploadedFile?.originalname,
         sourceFilePath: uploadedFile?.path,
         sourceFileMimeType: uploadedFile?.mimetype,

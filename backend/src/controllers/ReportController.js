@@ -160,7 +160,10 @@ class ReportController {
           request.wcagVersion,
           request.checkPoints,
           request.guidelines,
-          GUIDELINE_SCAN_OPTIONS,
+          {
+            ...GUIDELINE_SCAN_OPTIONS,
+            engineOptions: request.engineOptions,
+          },
         );
         const issues = scanResult.issues;
 
