@@ -6,7 +6,10 @@ const {
   normalizeCountryRegulation,
 } = require("../config/countryCompliance");
 const { normalizeEngineOptions } = require("../config/scanEngines");
-const { getSuccessCriteriaForVersion } = require("../config/wcagStandards");
+const {
+  getGuidelineIdsForVersion,
+  resolveSelectedGuidelines,
+} = require("../config/guidelineScope");
 
 const SUPPORTED_WCAG_VERSIONS = ["2.0", "2.1", "2.2"];
 const SUPPORTED_CONFORMANCE_LEVELS = ["A", "AA", "AAA"];
@@ -171,6 +174,26 @@ class RequestController {
         });
       }
 
+      const providedWeightages = toPlainWeightages(successCriteriaWeightage);
+      const effectiveGuidelines =
+        normalizedTaskType === "Generate Screen Reader Transcription"
+          ? []
+          : resolveSelectedGuidelines({
+              selectedGuidelines: normalizedGuidelines,
+              successCriteriaWeightage: providedWeightages,
+              wcagVersion: normalizedWcagVersion,
+              checkPoints: normalizedCheckPoints,
+              requestType: normalizedRequestType,
+            });
+      const normalizedSuccessCriteriaWeightage =
+        normalizedTaskType === "Generate Screen Reader Transcription"
+          ? {}
+          : normalizeSuccessCriteriaWeightage(
+              successCriteriaWeightage,
+              normalizedWcagVersion,
+              effectiveGuidelines,
+            );
+
       const request = await AccessibilityStore.createRequest({
         url: normalizedUrl,
         requestName: createRequestName(
@@ -202,18 +225,8 @@ class RequestController {
           ? normalizePositiveInteger(pdfMaxFailures, 100)
           : undefined,
         checkPoints: normalizedCheckPoints,
-        guidelines:
-          normalizedTaskType === "Generate Screen Reader Transcription"
-            ? []
-            : normalizedGuidelines,
-        successCriteriaWeightage:
-          normalizedTaskType === "Generate Screen Reader Transcription"
-            ? {}
-            : normalizeSuccessCriteriaWeightage(
-                successCriteriaWeightage,
-                normalizedWcagVersion,
-                normalizedGuidelines,
-              ),
+        guidelines: effectiveGuidelines,
+        successCriteriaWeightage: normalizedSuccessCriteriaWeightage,
         engineOptions: normalizedEngineOptions,
         sourceFileName: uploadedFile?.originalname,
         sourceFilePath: uploadedFile?.path,
@@ -414,10 +427,36 @@ const normalizeSuccessCriteriaWeightage = (
   const providedWeightages = toPlainWeightages(successCriteriaWeightage);
 
   if (Object.keys(providedWeightages).length > 0) {
-    return providedWeightages;
+    return filterWeightagesForGuidelines(
+      providedWeightages,
+      wcagVersion,
+      guidelines,
+    );
   }
 
   return createDefaultWeightages(wcagVersion, guidelines);
+};
+
+const filterWeightagesForGuidelines = (weightages, wcagVersion, guidelines) => {
+  if (Array.isArray(guidelines) && guidelines.length === 0) {
+    return {};
+  }
+
+  const versionGuidelineIds = getGuidelineIdsForVersion(wcagVersion);
+  const selectedGuidelines = Array.isArray(guidelines)
+    ? guidelines.filter((guidelineId) => guidelineId !== "All")
+    : [];
+  const allowedGuidelines =
+    selectedGuidelines.length > 0 ? selectedGuidelines : versionGuidelineIds;
+  const allowedGuidelineSet = new Set(allowedGuidelines);
+
+  return Object.entries(weightages).reduce((filtered, [guidelineId, weight]) => {
+    if (allowedGuidelineSet.has(guidelineId)) {
+      filtered[guidelineId] = weight;
+    }
+
+    return filtered;
+  }, {});
 };
 
 const toPlainWeightages = (value) => {
@@ -440,6 +479,10 @@ const toPlainWeightages = (value) => {
 };
 
 const createDefaultWeightages = (wcagVersion, guidelines) => {
+  if (Array.isArray(guidelines) && guidelines.length === 0) {
+    return {};
+  }
+
   const versionGuidelineIds = getGuidelineIdsForVersion(wcagVersion);
   const selectedGuidelines = Array.isArray(guidelines)
     ? guidelines.filter((guidelineId) => guidelineId !== "All")
@@ -455,14 +498,5 @@ const createDefaultWeightages = (wcagVersion, guidelines) => {
     return weightages;
   }, {});
 };
-
-const getGuidelineIdsForVersion = (wcagVersion) =>
-  Array.from(
-    new Set(
-      Object.values(getSuccessCriteriaForVersion(wcagVersion)).map(
-        (criterion) => criterion.guideline || criterion.guidelineId,
-      ),
-    ),
-  );
 
 module.exports = RequestController;

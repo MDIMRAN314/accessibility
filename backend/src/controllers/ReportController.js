@@ -10,6 +10,7 @@ const {
   wcagStandards,
   getSuccessCriteriaForVersion,
 } = require("../config/wcagStandards");
+const { resolveSelectedGuidelines } = require("../config/guidelineScope");
 
 const GUIDELINE_SCAN_OPTIONS = {
   scanScope: "Page",
@@ -141,6 +142,9 @@ class ReportController {
               {
                 conformanceLevel: request.conformanceLevel || "AA",
                 selectedGuidelines: request.guidelines,
+                successCriteriaWeightage: request.successCriteriaWeightage,
+                checkPoints: request.checkPoints,
+                requestType: request.requestType,
               },
             ),
           });
@@ -198,6 +202,9 @@ class ReportController {
             {
               conformanceLevel: request.conformanceLevel || "AA",
               selectedGuidelines: request.guidelines,
+              successCriteriaWeightage: request.successCriteriaWeightage,
+              checkPoints: request.checkPoints,
+              requestType: request.requestType,
             },
           ),
         });
@@ -319,7 +326,13 @@ class ReportController {
   static organizePrinciples(
     issues,
     wcagVersion,
-    { conformanceLevel = "AA", selectedGuidelines = ["All"] } = {},
+    {
+      conformanceLevel = "AA",
+      selectedGuidelines = ["All"],
+      successCriteriaWeightage = {},
+      checkPoints = ["All"],
+      requestType = "Web",
+    } = {},
   ) {
     const principles = [
       { name: "Perceivable", guidelines: [] },
@@ -330,7 +343,15 @@ class ReportController {
 
     const wcagConfig = wcagStandards[wcagVersion] || wcagStandards["2.2"];
     const versionCriteria = getSuccessCriteriaForVersion(wcagVersion);
-    const selectedGuidelineSet = new Set(selectedGuidelines || ["All"]);
+    const selectedGuidelineSet = new Set(
+      ReportController.resolveSelectedGuidelines(
+        selectedGuidelines,
+        successCriteriaWeightage,
+        wcagVersion,
+        checkPoints,
+        requestType,
+      ),
+    );
     const includeAllGuidelines =
       selectedGuidelineSet.size === 0 || selectedGuidelineSet.has("All");
 
@@ -382,6 +403,22 @@ class ReportController {
     });
 
     return principles;
+  }
+
+  static resolveSelectedGuidelines(
+    selectedGuidelines = ["All"],
+    successCriteriaWeightage = {},
+    wcagVersion = "2.2",
+    checkPoints = ["All"],
+    requestType = "Web",
+  ) {
+    return resolveSelectedGuidelines({
+      selectedGuidelines,
+      successCriteriaWeightage,
+      wcagVersion,
+      checkPoints,
+      requestType,
+    });
   }
 
   static isCriterionInConformance(criterionConfig, conformanceLevel = "AA") {
@@ -562,6 +599,10 @@ class ReportController {
               reportWithStatus.conformanceLevel ||
               "AA",
             selectedGuidelines: reportWithStatus.requestDetails?.guidelines,
+            successCriteriaWeightage:
+              reportWithStatus.requestDetails?.successCriteriaWeightage,
+            checkPoints: reportWithStatus.requestDetails?.checkPoints,
+            requestType: reportWithStatus.requestDetails?.requestType,
           },
         ),
         scoreHistory: [
@@ -631,6 +672,10 @@ class ReportController {
               reportWithStatus.conformanceLevel ||
               "AA",
             selectedGuidelines: reportWithStatus.requestDetails?.guidelines,
+            successCriteriaWeightage:
+              reportWithStatus.requestDetails?.successCriteriaWeightage,
+            checkPoints: reportWithStatus.requestDetails?.checkPoints,
+            requestType: reportWithStatus.requestDetails?.requestType,
           },
         ),
         scoreHistory: [
